@@ -1,31 +1,5 @@
 import MovieCard from "@/components/MovieCard";
-
-const movies = [
-  {
-    id: 1,
-    title: "Inception",
-    year: "2010",
-    rating: 8.8,
-  },
-  {
-    id: 2,
-    title: "Interstellar",
-    year: "2014",
-    rating: 8.7,
-  },
-  {
-    id: 3,
-    title: "The Dark Knight",
-    year: "2008",
-    rating: 9.0,
-  },
-  {
-    id: 4,
-    title: "Dune",
-    year: "2021",
-    rating: 8.1,
-  },
-];
+import { movies } from "@/lib/movies";
 
 export default function Home() {
   return (
@@ -81,6 +55,7 @@ export default function Home() {
                   title={movie.title}
                   year={movie.year}
                   rating={movie.rating}
+                  posterText={movie.posterText}
                 />
               ))}
             </div>
