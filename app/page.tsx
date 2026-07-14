@@ -45,6 +45,27 @@ export default function Home() {
             </button>
           </div>
 
+          <section className="mt-12 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+              <p className="text-sm text-neutral-400">Movies Loaded</p>
+              <p className="mt-2 text-2xl font-bold text-white">
+                {movies.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+              <p className="text-sm text-neutral-400">Data Source</p>
+              <p className="mt-2 text-2xl font-bold text-white">Local Mock</p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+              <p className="text-sm text-neutral-400">Project Status</p>
+              <p className="mt-2 text-2xl font-bold text-yellow-400">
+                Day 1 Ready
+              </p>
+            </div>
+          </section>
+
           <section className="mt-16">
             <h3 className="mb-6 text-2xl font-bold">Popular Movies</h3>
 
