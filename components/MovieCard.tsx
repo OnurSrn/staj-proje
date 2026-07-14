@@ -2,6 +2,7 @@ type MovieCardProps = {
   title: string;
   year: string;
   rating: number;
+  genre: string;
   posterText: string;
 };
 
@@ -9,6 +10,7 @@ export default function MovieCard({
   title,
   year,
   rating,
+  genre,
   posterText,
 }: MovieCardProps) {
   return (
@@ -21,7 +23,9 @@ export default function MovieCard({
 
       <h3 className="text-lg font-semibold text-white">{title}</h3>
 
-      <div className="mt-2 flex items-center justify-between text-sm text-neutral-400">
+      <p className="mt-1 text-sm text-neutral-500">{genre}</p>
+
+      <div className="mt-3 flex items-center justify-between text-sm text-neutral-400">
         <span>{year}</span>
 
         <span className="rounded-md bg-yellow-400 px-2 py-1 font-semibold text-black">

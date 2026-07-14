@@ -67,15 +67,23 @@ export default function Home() {
           </section>
 
           <section className="mt-16">
-            <h3 className="mb-6 text-2xl font-bold">Popular Movies</h3>
+            <div className="mb-6 flex items-end justify-between">
+              <div>
+                <h3 className="text-2xl font-bold">Popular Movies</h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Temporary local movie data before TMDB integration.
+                </p>
+              </div>
+            </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
               {movies.map((movie) => (
                 <MovieCard
                   key={movie.id}
                   title={movie.title}
                   year={movie.year}
                   rating={movie.rating}
+                  genre={movie.genre}
                   posterText={movie.posterText}
                 />
               ))}
