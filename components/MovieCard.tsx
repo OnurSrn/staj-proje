@@ -33,32 +33,34 @@ export default function MovieCard({
   return (
     <Link
       href={`/movie/${id}`}
-      className="group overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition hover:-translate-y-1 hover:border-yellow-400/60"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition duration-200 hover:-translate-y-1 hover:border-yellow-400/60"
     >
-      <div className="relative aspect-[2/3] bg-neutral-800">
+      <div className="relative aspect-[2/3] overflow-hidden bg-neutral-800">
         {posterUrl ? (
           <Image
             src={posterUrl}
             alt={`${title} poster`}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
             className="object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-neutral-500">
+          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-neutral-500">
             Poster bulunamadı
           </div>
         )}
       </div>
 
-      <div className="p-4">
-        <h3 className="truncate text-lg font-semibold text-white">{title}</h3>
+      <div className="flex flex-1 flex-col p-3">
+        <h3 className="line-clamp-1 text-base font-semibold text-white">
+          {title}
+        </h3>
 
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-neutral-500">
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500">
           {overview || "Bu film için açıklama bulunmuyor."}
         </p>
 
-        <div className="mt-4 flex items-center justify-between text-sm text-neutral-400">
+        <div className="mt-auto flex items-center justify-between pt-3 text-xs text-neutral-400">
           <span>{year || "Tarih yok"}</span>
 
           <span

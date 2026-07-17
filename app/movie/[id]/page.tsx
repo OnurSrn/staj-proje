@@ -1,9 +1,12 @@
 import Image from "next/image";
-import Link from "next/link";
+import CastCard from "@/components/CastCard";
+import MovieActions from "@/components/MovieActions";
+import MovieCard from "@/components/MovieCard";
 import {
   getBackdropUrl,
   getMovieDetails,
   getPosterUrl,
+  getProfileUrl,
 } from "@/lib/tmdb";
 
 type MovieDetailsPageProps = {
@@ -36,9 +39,24 @@ export default async function MovieDetailsPage({
   const posterUrl = getPosterUrl(movie.poster_path);
   const backdropUrl = getBackdropUrl(movie.backdrop_path);
 
+  const cast = movie.credits.cast.slice(0, 10);
+
+  const trailer =
+    movie.videos.results.find(
+      (video) =>
+        video.site === "YouTube" &&
+        video.type === "Trailer" &&
+        video.official
+    ) ??
+    movie.videos.results.find(
+      (video) => video.site === "YouTube" && video.type === "Trailer"
+    );
+
+  const recommendations = movie.recommendations.results.slice(0, 5);
+
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
-      <section className="relative min-h-screen overflow-hidden">
+      <section className="relative overflow-hidden">
         {backdropUrl && (
           <Image
             src={backdropUrl}
@@ -52,21 +70,8 @@ export default async function MovieDetailsPage({
 
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/40 via-neutral-950/80 to-neutral-950" />
 
-        <div className="relative mx-auto max-w-7xl px-6 py-8">
-          <nav className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold text-yellow-400">
-              CineScope
-            </Link>
-
-            <Link
-              href="/"
-              className="rounded-lg border border-neutral-700 px-4 py-2 text-sm transition hover:border-yellow-400 hover:text-yellow-400"
-            >
-              Ana sayfaya dön
-            </Link>
-          </nav>
-
-          <div className="grid gap-10 pb-16 pt-20 md:grid-cols-[280px_1fr]">
+        <div className="relative mx-auto max-w-7xl px-6 py-16">
+          <div className="grid gap-10 md:grid-cols-[280px_1fr]">
             <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl">
               {posterUrl ? (
                 <Image
@@ -78,7 +83,7 @@ export default async function MovieDetailsPage({
                   className="object-cover"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-neutral-500">
+                <div className="flex h-full items-center justify-center px-4 text-center text-neutral-500">
                   Poster bulunamadı
                 </div>
               )}
@@ -136,19 +141,82 @@ export default async function MovieDetailsPage({
                 </p>
               </section>
 
-              <div className="mt-8 flex flex-wrap gap-4">
-                <button className="rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300">
-                  Favorilere Ekle
-                </button>
-
-                <button className="rounded-lg border border-neutral-700 px-6 py-3 font-semibold transition hover:border-yellow-400 hover:text-yellow-400">
-                  Watchlist&apos;e Ekle
-                </button>
-              </div>
+              <MovieActions movieId={movie.id} />
             </div>
           </div>
         </div>
       </section>
+
+      {trailer && (
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <div className="mb-6">
+            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
+              Official Video
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold">Fragman</h2>
+          </div>
+
+          <div className="aspect-video overflow-hidden rounded-2xl border border-neutral-800 bg-black">
+            <iframe
+              src={`https://www.youtube.com/embed/${trailer.key}`}
+              title={`${movie.title} fragmanı`}
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </section>
+      )}
+
+      {cast.length > 0 && (
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
+              Cast
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold">Oyuncular</h2>
+          </div>
+
+          <div className="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {cast.map((castMember) => (
+              <CastCard
+                key={castMember.id}
+                name={castMember.name}
+                character={castMember.character}
+                profileUrl={getProfileUrl(castMember.profile_path)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {recommendations.length > 0 && (
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
+              You May Also Like
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold">Benzer Filmler</h2>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {recommendations.map((recommendedMovie) => (
+              <MovieCard
+                key={recommendedMovie.id}
+                id={recommendedMovie.id}
+                title={recommendedMovie.title}
+                year={recommendedMovie.release_date?.slice(0, 4) ?? ""}
+                rating={recommendedMovie.vote_average}
+                overview={recommendedMovie.overview}
+                posterUrl={getPosterUrl(recommendedMovie.poster_path)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
