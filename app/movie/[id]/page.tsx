@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
 import Image from "next/image";
+import { notFound } from "next/navigation";
 import CastCard from "@/components/CastCard";
 import MovieActions from "@/components/MovieActions";
 import MovieCard from "@/components/MovieCard";
+import MovieRating from "@/components/MovieRating";
+import MovieWatchStatus from "@/components/MovieWatchStatus";
 import {
   getBackdropUrl,
   getMovieDetails,
   getPosterUrl,
   getProfileUrl,
+  TmdbNotFoundError,
+  type MovieCrewMember,
 } from "@/lib/tmdb";
 
 type MovieDetailsPageProps = {
@@ -14,6 +20,76 @@ type MovieDetailsPageProps = {
     id: string;
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: MovieDetailsPageProps): Promise<Metadata> {
+  const { id } = await params;
+
+  try {
+    const movie = await getMovieDetails(id);
+    const posterUrl = getPosterUrl(movie.poster_path);
+
+    return {
+      title: movie.title,
+      description: movie.overview || undefined,
+      openGraph: posterUrl
+        ? {
+            images: [{ url: posterUrl }],
+          }
+        : undefined,
+    };
+  } catch (error) {
+    if (error instanceof TmdbNotFoundError) {
+      return {};
+    }
+
+    throw error;
+  }
+}
+
+type CrewSection = {
+  label: string;
+  people: MovieCrewMember[];
+};
+
+function getKeyCrewSections(crew: MovieCrewMember[]): CrewSection[] {
+  const usedIds = new Set<number>();
+
+  function pickCrew(jobs: string[]): MovieCrewMember[] {
+    const seenIds = new Set<number>();
+    const matches: MovieCrewMember[] = [];
+
+    for (const member of crew) {
+      if (!jobs.includes(member.job)) {
+        continue;
+      }
+
+      if (usedIds.has(member.id) || seenIds.has(member.id)) {
+        continue;
+      }
+
+      seenIds.add(member.id);
+      matches.push(member);
+    }
+
+    matches.forEach((member) => usedIds.add(member.id));
+
+    return matches;
+  }
+
+  const sections: CrewSection[] = [
+    { label: "Yönetmen", people: pickCrew(["Director"]) },
+    { label: "Senaryo", people: pickCrew(["Writer", "Screenplay"]) },
+    {
+      label: "Görüntü Yönetmeni",
+      people: pickCrew(["Director of Photography"]),
+    },
+    { label: "Müzik", people: pickCrew(["Original Music Composer"]) },
+  ];
+
+  return sections.filter((section) => section.people.length > 0);
+}
 
 function formatRuntime(runtime: number | null) {
   if (!runtime) {
@@ -34,12 +110,28 @@ export default async function MovieDetailsPage({
   params,
 }: MovieDetailsPageProps) {
   const { id } = await params;
-  const movie = await getMovieDetails(id);
+
+  let movie;
+
+  try {
+    movie = await getMovieDetails(id);
+  } catch (error) {
+    if (error instanceof TmdbNotFoundError) {
+      notFound();
+    }
+
+    throw error;
+  }
 
   const posterUrl = getPosterUrl(movie.poster_path);
   const backdropUrl = getBackdropUrl(movie.backdrop_path);
+  const hasTmdbRating =
+    movie.vote_count > 0 &&
+    Number.isFinite(movie.vote_average) &&
+    movie.vote_average > 0;
 
   const cast = movie.credits.cast.slice(0, 10);
+  const crewSections = getKeyCrewSections(movie.credits.crew);
 
   const trailer =
     movie.videos.results.find(
@@ -105,9 +197,11 @@ export default async function MovieDetailsPage({
               )}
 
               <div className="mt-6 flex flex-wrap gap-3 text-sm">
-                <span className="rounded-full bg-yellow-400 px-3 py-1 font-semibold text-black">
-                  Puan: {movie.vote_average.toFixed(1)}
-                </span>
+                {hasTmdbRating && (
+                  <span className="rounded-full bg-yellow-400 px-3 py-1 font-semibold text-black">
+                    Puan: {movie.vote_average.toFixed(1)}
+                  </span>
+                )}
 
                 <span className="rounded-full border border-neutral-700 px-3 py-1 text-neutral-300">
                   {movie.release_date?.slice(0, 4) || "Tarih yok"}
@@ -140,6 +234,34 @@ export default async function MovieDetailsPage({
                   {movie.overview || "Bu film için açıklama bulunmuyor."}
                 </p>
               </section>
+
+              {crewSections.length > 0 && (
+                <section className="mt-6 max-w-3xl">
+                  <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-400">
+                    Yaratıcı Ekip
+                  </h2>
+
+                  <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                    {crewSections.map((section) => (
+                      <div key={section.label}>
+                        <dt className="text-xs uppercase tracking-wide text-neutral-500">
+                          {section.label}
+                        </dt>
+
+                        <dd className="mt-1 text-sm text-neutral-200">
+                          {section.people
+                            .map((person) => person.name)
+                            .join(", ")}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+
+              <MovieRating movieId={movie.id} />
+
+              <MovieWatchStatus movieId={movie.id} />
 
               <MovieActions movieId={movie.id} />
             </div>
@@ -183,6 +305,7 @@ export default async function MovieDetailsPage({
             {cast.map((castMember) => (
               <CastCard
                 key={castMember.id}
+                personId={castMember.id}
                 name={castMember.name}
                 character={castMember.character}
                 profileUrl={getProfileUrl(castMember.profile_path)}
@@ -210,6 +333,7 @@ export default async function MovieDetailsPage({
                 title={recommendedMovie.title}
                 year={recommendedMovie.release_date?.slice(0, 4) ?? ""}
                 rating={recommendedMovie.vote_average}
+                voteCount={recommendedMovie.vote_count}
                 overview={recommendedMovie.overview}
                 posterUrl={getPosterUrl(recommendedMovie.poster_path)}
               />

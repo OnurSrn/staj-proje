@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import MovieCard from "@/components/MovieCard";
-import { getPosterUrl, type MovieDetails } from "@/lib/tmdb";
+import { useMoviesByIds } from "@/components/hooks/useMoviesByIds";
+import { useSavedMovies } from "@/components/SavedMoviesProvider";
+import { getPosterUrl } from "@/lib/tmdb";
 
 type SavedMoviesGridProps = {
   storageKey: string;
@@ -12,89 +13,24 @@ type SavedMoviesGridProps = {
   removeButtonText: string;
 };
 
-function readMovieIds(storageKey: string): number[] {
-  try {
-    const storedValue = localStorage.getItem(storageKey);
-
-    if (!storedValue) {
-      return [];
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    return parsedValue.filter(
-      (value): value is number => typeof value === "number"
-    );
-  } catch {
-    return [];
-  }
-}
-
 export default function SavedMoviesGrid({
   storageKey,
   emptyTitle,
   emptyDescription,
   removeButtonText,
 }: SavedMoviesGridProps) {
-  const [movies, setMovies] = useState<MovieDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  const { favoriteIds, watchlistIds, isLoaded, toggleFavorite, toggleWatchlist } =
+    useSavedMovies();
 
-  useEffect(() => {
-    async function loadMovies() {
-      const movieIds = readMovieIds(storageKey);
+  const isFavoritesList = storageKey === "cinescope-favorites";
+  const movieIds = isFavoritesList ? favoriteIds : watchlistIds;
+  const toggleMovie = isFavoritesList ? toggleFavorite : toggleWatchlist;
 
-      if (movieIds.length === 0) {
-        setMovies([]);
-        setIsLoading(false);
-        return;
-      }
+  const { movies, isLoading, hasError } = useMoviesByIds(movieIds);
 
-      try {
-        const responses = await Promise.all(
-          movieIds.map((movieId) =>
-            fetch(`/api/movies/${movieId}`, {
-              cache: "no-store",
-            })
-          )
-        );
+  const visibleMovies = movies.filter((movie) => movieIds.includes(movie.id));
 
-        const successfulResponses = responses.filter(
-          (response) => response.ok
-        );
-
-        const movieData: MovieDetails[] = await Promise.all(
-          successfulResponses.map((response) => response.json())
-        );
-
-        setMovies(movieData);
-      } catch {
-        setHasError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadMovies();
-  }, [storageKey]);
-
-  function removeMovie(movieId: number) {
-    const currentIds = readMovieIds(storageKey);
-
-    const updatedIds = currentIds.filter((id) => id !== movieId);
-
-    localStorage.setItem(storageKey, JSON.stringify(updatedIds));
-
-    setMovies((currentMovies) =>
-      currentMovies.filter((movie) => movie.id !== movieId)
-    );
-  }
-
-  if (isLoading) {
+  if (!isLoaded || isLoading) {
     return (
       <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
@@ -128,7 +64,7 @@ export default function SavedMoviesGrid({
     );
   }
 
-  if (movies.length === 0) {
+  if (visibleMovies.length === 0) {
     return (
       <div className="mt-10 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
         <h2 className="text-xl font-semibold">{emptyTitle}</h2>
@@ -148,24 +84,25 @@ export default function SavedMoviesGrid({
   return (
     <>
       <p className="mt-4 text-sm text-neutral-500">
-        Toplam {movies.length} film
+        Toplam {visibleMovies.length} film
       </p>
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {movies.map((movie) => (
+        {visibleMovies.map((movie) => (
           <div key={movie.id} className="flex flex-col gap-3">
             <MovieCard
               id={movie.id}
               title={movie.title}
               year={movie.release_date?.slice(0, 4) ?? ""}
               rating={movie.vote_average}
+              voteCount={movie.vote_count}
               overview={movie.overview}
               posterUrl={getPosterUrl(movie.poster_path)}
             />
 
             <button
               type="button"
-              onClick={() => removeMovie(movie.id)}
+              onClick={() => toggleMovie(movie.id)}
               className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
             >
               {removeButtonText}

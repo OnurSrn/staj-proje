@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMovieDetails } from "@/lib/tmdb";
+import { getMovieDetails, TmdbNotFoundError } from "@/lib/tmdb";
 
 type MovieApiRouteProps = {
   params: Promise<{
@@ -16,7 +16,18 @@ export async function GET(
     const movie = await getMovieDetails(id);
 
     return NextResponse.json(movie);
-  } catch {
+  } catch (error) {
+    if (error instanceof TmdbNotFoundError) {
+      return NextResponse.json(
+        {
+          message: "Film bulunamadı.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
     return NextResponse.json(
       {
         message: "Film bilgileri alınamadı.",

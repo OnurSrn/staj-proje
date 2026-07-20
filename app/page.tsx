@@ -243,6 +243,7 @@ export default async function Home({
                   title={movie.title}
                   year={movie.release_date?.slice(0, 4) ?? ""}
                   rating={movie.vote_average}
+                  voteCount={movie.vote_count}
                   overview={movie.overview}
                   posterUrl={getPosterUrl(movie.poster_path)}
                 />

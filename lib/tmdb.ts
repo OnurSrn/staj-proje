@@ -1,5 +1,12 @@
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
+export class TmdbNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TmdbNotFoundError";
+  }
+}
+
 export type TmdbMovie = {
   id: number;
   title: string;
@@ -8,6 +15,8 @@ export type TmdbMovie = {
   backdrop_path: string | null;
   release_date: string;
   vote_average: number;
+  vote_count: number;
+  popularity: number;
 };
 
 export type MovieGenre = {
@@ -21,6 +30,14 @@ export type MovieCastMember = {
   character: string;
   profile_path: string | null;
   order: number;
+};
+
+export type MovieCrewMember = {
+  id: number;
+  name: string;
+  job: string;
+  department: string;
+  profile_path: string | null;
 };
 
 export type MovieVideo = {
@@ -39,6 +56,7 @@ export type MovieDetails = TmdbMovie & {
   genres: MovieGenre[];
   credits: {
     cast: MovieCastMember[];
+    crew: MovieCrewMember[];
   };
   videos: {
     results: MovieVideo[];
@@ -64,6 +82,96 @@ export type MovieListResponse = {
   results: TmdbMovie[];
   total_pages: number;
   total_results: number;
+};
+
+export type Mood =
+  | "fun"
+  | "exciting"
+  | "emotional"
+  | "dark"
+  | "cozy"
+  | "thoughtful";
+
+export type RuntimePreference = "short" | "medium" | "long" | "any";
+
+export type Intensity = "light" | "balanced" | "intense";
+
+export type Company = "alone" | "friends" | "family" | "partner";
+
+export type Discovery = "safe" | "balanced" | "different";
+
+export type WhatToWatchOptions = {
+  mood: Mood;
+  runtime: RuntimePreference;
+  intensity: Intensity;
+  company: Company;
+  discovery: Discovery;
+  genreId: number;
+  page?: number;
+};
+
+// Koleksiyon "geniş aday havuzu" sorgusu: yalnızca OR mantığıyla kaba bir
+// ön eleme yapar. Tematik doğruluk (AND grupları, keyword şartları) bu
+// sonuçlar üzerinde lib/collectionEngine.ts tarafından ayrıca uygulanır.
+export type CollectionCandidateOptions = {
+  candidateGenreIds: number[];
+  candidateKeywordIds?: number[];
+  excludedGenreIds?: number[];
+  sortBy: MovieSort;
+  voteCountMin: number;
+  voteAverageMin: number;
+  runtimeMin?: number;
+  runtimeMax?: number;
+};
+
+// discover/movie yanıtı, MovieDetails'in aksine tam "genres" nesnesi
+// değil, sayısal "genre_ids" dizisi döndürür — koleksiyon motoru
+// puanlama için bu alana ihtiyaç duyar.
+export type CollectionCandidateMovie = TmdbMovie & {
+  genre_ids: number[];
+};
+
+export type CollectionCandidateListResponse = {
+  page: number;
+  results: CollectionCandidateMovie[];
+  total_pages: number;
+  total_results: number;
+};
+
+export type MovieKeyword = {
+  id: number;
+  name: string;
+};
+
+type MovieKeywordsResponse = {
+  keywords: MovieKeyword[];
+};
+
+export type PersonDetails = {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  deathday: string | null;
+  place_of_birth: string | null;
+  known_for_department: string;
+  profile_path: string | null;
+};
+
+export type PersonMovieCredit = {
+  id: number;
+  title: string;
+  character: string;
+  overview: string;
+  poster_path: string | null;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  popularity: number;
+};
+
+type PersonMovieCreditsResponse = {
+  cast: PersonMovieCredit[];
 };
 
 type MovieGenresResponse = {
@@ -131,6 +239,90 @@ export async function getMoviesByCategory(
     if (!response.ok) {
       throw new Error(
         `Popüler filmler alınamadı. Hata kodu: ${response.status}`
+      );
+    }
+
+    return response.json();
+  }
+
+  if (category === "upcoming") {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    const sixMonthsLater = new Date(today);
+
+    tomorrow.setDate(today.getDate() + 1);
+    sixMonthsLater.setMonth(today.getMonth() + 6);
+
+    const tomorrowString = tomorrow.toISOString().split("T")[0];
+    const sixMonthsLaterString = sixMonthsLater
+      .toISOString()
+      .split("T")[0];
+
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      language: "en-US",
+      page: safePage.toString(),
+      sort_by: "primary_release_date.asc",
+      include_adult: "false",
+      include_video: "false",
+      "primary_release_date.gte": tomorrowString,
+      "primary_release_date.lte": sixMonthsLaterString,
+      "vote_count.gte": "0",
+    });
+
+    const response = await fetch(
+      `${TMDB_BASE_URL}/discover/movie?${params.toString()}`,
+      {
+        next: {
+          revalidate: 3600,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Yakında gelecek filmler alınamadı. Hata kodu: ${response.status}`
+      );
+    }
+
+    return response.json();
+  }
+
+  if (category === "now-playing") {
+    const today = new Date();
+    const fortyFiveDaysAgo = new Date(today);
+
+    fortyFiveDaysAgo.setDate(today.getDate() - 45);
+
+    const todayString = today.toISOString().split("T")[0];
+    const fortyFiveDaysAgoString = fortyFiveDaysAgo
+      .toISOString()
+      .split("T")[0];
+
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      language: "en-US",
+      page: safePage.toString(),
+      sort_by: "popularity.desc",
+      include_adult: "false",
+      include_video: "false",
+      "primary_release_date.gte": fortyFiveDaysAgoString,
+      "primary_release_date.lte": todayString,
+      "vote_count.gte": "20",
+    });
+
+    const response = await fetch(
+      `${TMDB_BASE_URL}/discover/movie?${params.toString()}`,
+      {
+        next: {
+          revalidate: 3600,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Gösterimdeki filmler alınamadı. Hata kodu: ${response.status}`
       );
     }
 
@@ -205,6 +397,298 @@ export async function discoverMovies(
   return response.json();
 }
 
+type MoodConfig = {
+  genreIds: number[];
+  minVoteAverage: number;
+};
+
+// TMDB'nin sabit film türü id'leri: https://developer.themoviedb.org/reference/genre-movie-list
+const GENRE_IDS = {
+  action: 28,
+  adventure: 12,
+  animation: 16,
+  comedy: 35,
+  crime: 80,
+  documentary: 99,
+  drama: 18,
+  family: 10751,
+  horror: 27,
+  mystery: 9648,
+  romance: 10749,
+  sciFi: 878,
+  thriller: 53,
+  war: 10752,
+} as const;
+
+// Bu eşleştirmeler kesin kurallar değil, açıklanabilir bir başlangıç noktasıdır.
+const MOOD_CONFIG: Record<Mood, MoodConfig> = {
+  fun: {
+    genreIds: [GENRE_IDS.comedy, GENRE_IDS.adventure],
+    minVoteAverage: 6,
+  },
+  exciting: {
+    genreIds: [GENRE_IDS.action, GENRE_IDS.thriller, GENRE_IDS.adventure],
+    minVoteAverage: 6,
+  },
+  emotional: {
+    genreIds: [GENRE_IDS.drama, GENRE_IDS.romance],
+    minVoteAverage: 6,
+  },
+  dark: {
+    genreIds: [
+      GENRE_IDS.thriller,
+      GENRE_IDS.crime,
+      GENRE_IDS.horror,
+      GENRE_IDS.mystery,
+    ],
+    minVoteAverage: 6,
+  },
+  cozy: {
+    genreIds: [GENRE_IDS.comedy, GENRE_IDS.family, GENRE_IDS.animation],
+    minVoteAverage: 5.5,
+  },
+  thoughtful: {
+    genreIds: [
+      GENRE_IDS.sciFi,
+      GENRE_IDS.drama,
+      GENRE_IDS.mystery,
+      GENRE_IDS.documentary,
+    ],
+    minVoteAverage: 6.5,
+  },
+};
+
+// Yoğunluk "hafif" olduğunda mood'un getirdiği ağır türler zorunlu kılınmasın.
+const HEAVY_GENRE_IDS: number[] = [GENRE_IDS.horror, GENRE_IDS.war];
+
+// Yoğunluk "yoğun" olduğunda bu türlere ek ağırlık verilebilir.
+const INTENSE_GENRE_IDS: number[] = [
+  GENRE_IDS.drama,
+  GENRE_IDS.thriller,
+  GENRE_IDS.mystery,
+  GENRE_IDS.sciFi,
+];
+
+type CompanyConfig = {
+  genreIds: number[];
+  excludeGenreIds: number[];
+};
+
+// company, mood'un tür listesine OR mantığıyla hafif bir ağırlık ekler.
+// Yalnızca family, güvenlik amaçlı bir without_genres dışlaması taşır.
+const COMPANY_CONFIG: Record<Company, CompanyConfig> = {
+  alone: {
+    genreIds: [],
+    excludeGenreIds: [],
+  },
+  friends: {
+    genreIds: [GENRE_IDS.comedy, GENRE_IDS.action, GENRE_IDS.adventure],
+    excludeGenreIds: [],
+  },
+  family: {
+    genreIds: [GENRE_IDS.family, GENRE_IDS.animation, GENRE_IDS.adventure],
+    excludeGenreIds: [GENRE_IDS.horror, GENRE_IDS.crime, GENRE_IDS.war],
+  },
+  partner: {
+    genreIds: [GENRE_IDS.romance, GENRE_IDS.comedy, GENRE_IDS.drama],
+    excludeGenreIds: [],
+  },
+};
+
+export async function getWhatToWatchRecommendations(
+  options: WhatToWatchOptions
+): Promise<MovieListResponse> {
+  const apiKey = getApiKey();
+  const safePage = Math.max(1, Math.min(options.page ?? 1, 500));
+  const today = new Date().toISOString().split("T")[0];
+
+  const moodConfig = MOOD_CONFIG[options.mood];
+
+  let moodGenreIds = moodConfig.genreIds;
+
+  if (options.intensity === "light") {
+    moodGenreIds = moodGenreIds.filter(
+      (genreId) => !HEAVY_GENRE_IDS.includes(genreId)
+    );
+  }
+
+  if (options.intensity === "intense") {
+    moodGenreIds = Array.from(
+      new Set([...moodGenreIds, ...INTENSE_GENRE_IDS])
+    );
+  }
+
+  let minVoteAverage = moodConfig.minVoteAverage;
+
+  if (options.intensity === "light") {
+    minVoteAverage = Math.max(0, minVoteAverage - 1);
+  }
+
+  if (options.intensity === "intense") {
+    minVoteAverage = minVoteAverage + 1;
+  }
+
+  const companyConfig = COMPANY_CONFIG[options.company];
+
+  // Kullanıcı açıkça bir tür seçtiyse company önerisi bu seçimi ezmesin.
+  let combinedGenreIds = moodGenreIds;
+  let excludeGenreIds: number[] = [];
+
+  if (options.genreId === 0) {
+    combinedGenreIds = Array.from(
+      new Set([...moodGenreIds, ...companyConfig.genreIds])
+    );
+    excludeGenreIds = companyConfig.excludeGenreIds;
+  }
+
+  let sortBy: MovieSort = "popularity.desc";
+  let voteCountMin = 150;
+
+  if (options.discovery === "safe") {
+    sortBy = "popularity.desc";
+    voteCountMin = 500;
+  } else if (options.discovery === "balanced") {
+    sortBy = "popularity.desc";
+    voteCountMin = 150;
+  } else {
+    sortBy = "primary_release_date.desc";
+    voteCountMin = 30;
+  }
+
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    language: "en-US",
+    page: safePage.toString(),
+    sort_by: sortBy,
+    include_adult: "false",
+    include_video: "false",
+    "primary_release_date.lte": today,
+    "vote_average.gte": minVoteAverage.toString(),
+    "vote_count.gte": voteCountMin.toString(),
+  });
+
+  if (options.genreId > 0) {
+    params.set("with_genres", options.genreId.toString());
+  } else if (combinedGenreIds.length > 0) {
+    params.set("with_genres", combinedGenreIds.join("|"));
+  }
+
+  if (excludeGenreIds.length > 0) {
+    params.set("without_genres", excludeGenreIds.join(","));
+  }
+
+  if (options.runtime === "short") {
+    params.set("with_runtime.lte", "90");
+  } else if (options.runtime === "medium") {
+    params.set("with_runtime.gte", "90");
+    params.set("with_runtime.lte", "120");
+  } else if (options.runtime === "long") {
+    params.set("with_runtime.gte", "120");
+  }
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/discover/movie?${params.toString()}`,
+    {
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Film önerileri alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getCollectionCandidates(
+  options: CollectionCandidateOptions,
+  page = 1
+): Promise<CollectionCandidateListResponse> {
+  const apiKey = getApiKey();
+  const safePage = Math.max(1, Math.min(page, 500));
+  const today = new Date().toISOString().split("T")[0];
+
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    language: "en-US",
+    page: safePage.toString(),
+    sort_by: options.sortBy,
+    include_adult: "false",
+    include_video: "false",
+    "primary_release_date.lte": today,
+    "vote_average.gte": options.voteAverageMin.toString(),
+    "vote_count.gte": options.voteCountMin.toString(),
+  });
+
+  if (options.candidateGenreIds.length > 0) {
+    params.set("with_genres", options.candidateGenreIds.join("|"));
+  }
+
+  if (options.candidateKeywordIds && options.candidateKeywordIds.length > 0) {
+    params.set("with_keywords", options.candidateKeywordIds.join("|"));
+  }
+
+  if (options.excludedGenreIds && options.excludedGenreIds.length > 0) {
+    params.set("without_genres", options.excludedGenreIds.join(","));
+  }
+
+  if (options.runtimeMin !== undefined) {
+    params.set("with_runtime.gte", options.runtimeMin.toString());
+  }
+
+  if (options.runtimeMax !== undefined) {
+    params.set("with_runtime.lte", options.runtimeMax.toString());
+  }
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/discover/movie?${params.toString()}`,
+    {
+      next: {
+        revalidate: 3600,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Koleksiyon adayları alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+// Anahtar kelimeler filme özgü ve nadiren değişir; uzun revalidate süresi
+// hem doğruluk motorunun tekrarlayan sayfa isteklerinde önbellekten
+// yararlanmasını sağlar hem de aynı render sürecinde aynı film için
+// tekrar istek atılmasını (Next.js fetch dedupe ile) önler.
+export async function getMovieKeywords(
+  movieId: number
+): Promise<MovieKeyword[]> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/movie/${movieId}/keywords?api_key=${apiKey}`,
+    {
+      next: {
+        revalidate: 604800,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Film anahtar kelimeleri alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data: MovieKeywordsResponse = await response.json();
+
+  return data.keywords;
+}
+
 export async function getMovieGenres(): Promise<MovieGenre[]> {
   const apiKey = getApiKey();
 
@@ -228,25 +712,34 @@ export async function getMovieGenres(): Promise<MovieGenre[]> {
   return data.genres;
 }
 
-export async function getPopularMovies(): Promise<TmdbMovie[]> {
-  const data = await getMoviesByCategory("popular", 1);
-
-  return data.results;
-}
-
-export async function searchMovies(query: string): Promise<TmdbMovie[]> {
+export async function searchMovies(
+  query: string,
+  page = 1
+): Promise<MovieListResponse> {
   const trimmedQuery = query.trim();
+  const safePage = Math.max(1, Math.min(page, 500));
 
   if (!trimmedQuery) {
-    return [];
+    return {
+      page: 1,
+      results: [],
+      total_pages: 0,
+      total_results: 0,
+    };
   }
 
   const apiKey = getApiKey();
 
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    query: trimmedQuery,
+    language: "en-US",
+    page: safePage.toString(),
+    include_adult: "false",
+  });
+
   const response = await fetch(
-    `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(
-      trimmedQuery
-    )}&language=en-US&page=1&include_adult=false`,
+    `${TMDB_BASE_URL}/search/movie?${params.toString()}`,
     {
       cache: "no-store",
     }
@@ -258,9 +751,7 @@ export async function searchMovies(query: string): Promise<TmdbMovie[]> {
     );
   }
 
-  const data: MovieListResponse = await response.json();
-
-  return data.results;
+  return response.json();
 }
 
 export async function getMovieDetails(
@@ -278,12 +769,72 @@ export async function getMovieDetails(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new TmdbNotFoundError(`Film bulunamadı: ${movieId}`);
+    }
+
     throw new Error(
       `Film detayları alınamadı. Hata kodu: ${response.status}`
     );
   }
 
   return response.json();
+}
+
+export async function getPersonDetails(
+  personId: string
+): Promise<PersonDetails> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/person/${personId}?api_key=${apiKey}&language=en-US`,
+    {
+      next: {
+        revalidate: 86400,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new TmdbNotFoundError(`Kişi bulunamadı: ${personId}`);
+    }
+
+    throw new Error(
+      `Kişi bilgileri alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getPersonMovieCredits(
+  personId: string
+): Promise<PersonMovieCredit[]> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/person/${personId}/movie_credits?api_key=${apiKey}&language=en-US`,
+    {
+      next: {
+        revalidate: 86400,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new TmdbNotFoundError(`Kişi bulunamadı: ${personId}`);
+    }
+
+    throw new Error(
+      `Kişinin filmleri alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data: PersonMovieCreditsResponse = await response.json();
+
+  return data.cast;
 }
 
 export function getPosterUrl(
@@ -303,7 +854,7 @@ export function getBackdropUrl(
     return null;
   }
 
-  return `https://image.tmdb.org/t/p/original${backdropPath}`;
+  return `https://image.tmdb.org/t/p/w1280${backdropPath}`;
 }
 
 export function getProfileUrl(

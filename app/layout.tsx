@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
+import SavedMoviesProvider from "@/components/SavedMoviesProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,8 +20,10 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className="bg-neutral-950 text-white">
-        <Navbar />
-        {children}
+        <SavedMoviesProvider>
+          <Navbar />
+          {children}
+        </SavedMoviesProvider>
       </body>
     </html>
   );

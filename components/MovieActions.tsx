@@ -1,74 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSavedMovies } from "@/components/SavedMoviesProvider";
 
 type MovieActionsProps = {
   movieId: number;
 };
 
-function readMovieIds(key: string): number[] {
-  try {
-    const storedValue = localStorage.getItem(key);
-
-    if (!storedValue) {
-      return [];
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    return parsedValue.filter(
-      (value): value is number => typeof value === "number"
-    );
-  } catch {
-    return [];
-  }
-}
-
-function toggleMovieId(key: string, movieId: number): boolean {
-  const currentIds = readMovieIds(key);
-  const movieExists = currentIds.includes(movieId);
-
-  const updatedIds = movieExists
-    ? currentIds.filter((id) => id !== movieId)
-    : [...currentIds, movieId];
-
-  localStorage.setItem(key, JSON.stringify(updatedIds));
-
-  return !movieExists;
-}
-
 export default function MovieActions({ movieId }: MovieActionsProps) {
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    setIsFavorite(readMovieIds("cinescope-favorites").includes(movieId));
-    setIsInWatchlist(readMovieIds("cinescope-watchlist").includes(movieId));
-    setIsLoaded(true);
-  }, [movieId]);
-
-  function handleFavorite() {
-    const newFavoriteState = toggleMovieId(
-      "cinescope-favorites",
-      movieId
-    );
-
-    setIsFavorite(newFavoriteState);
-  }
-
-  function handleWatchlist() {
-    const newWatchlistState = toggleMovieId(
-      "cinescope-watchlist",
-      movieId
-    );
-
-    setIsInWatchlist(newWatchlistState);
-  }
+  const {
+    isLoaded,
+    isFavorite,
+    isInWatchlist,
+    toggleFavorite,
+    toggleWatchlist,
+  } = useSavedMovies();
 
   if (!isLoaded) {
     return (
@@ -79,32 +24,33 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
     );
   }
 
+  const favorite = isFavorite(movieId);
+  const inWatchlist = isInWatchlist(movieId);
+
   return (
     <div className="mt-8 flex flex-wrap gap-4">
       <button
         type="button"
-        onClick={handleFavorite}
+        onClick={() => toggleFavorite(movieId)}
         className={
-          isFavorite
+          favorite
             ? "rounded-lg bg-red-500 px-6 py-3 font-semibold text-white transition hover:bg-red-400"
             : "rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
         }
       >
-        {isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+        {favorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
       </button>
 
       <button
         type="button"
-        onClick={handleWatchlist}
+        onClick={() => toggleWatchlist(movieId)}
         className={
-          isInWatchlist
+          inWatchlist
             ? "rounded-lg border border-green-400 bg-green-400/10 px-6 py-3 font-semibold text-green-400 transition hover:bg-green-400/20"
             : "rounded-lg border border-neutral-700 px-6 py-3 font-semibold transition hover:border-yellow-400 hover:text-yellow-400"
         }
       >
-        {isInWatchlist
-          ? "Watchlist'ten Çıkar"
-          : "Watchlist'e Ekle"}
+        {inWatchlist ? "Watchlist'ten Çıkar" : "Watchlist'e Ekle"}
       </button>
     </div>
   );

@@ -1,11 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useSavedMovies } from "@/components/SavedMoviesProvider";
 
 type MovieCardProps = {
   id: number;
   title: string;
   year: string;
   rating: number;
+  voteCount: number;
   overview: string;
   posterUrl: string | null;
 };
@@ -27,15 +31,38 @@ export default function MovieCard({
   title,
   year,
   rating,
+  voteCount,
   overview,
   posterUrl,
 }: MovieCardProps) {
+  const { isFavorite, isInWatchlist } = useSavedMovies();
+
+  const favorite = isFavorite(id);
+  const inWatchlist = isInWatchlist(id);
+  const hasRating = voteCount > 0 && Number.isFinite(rating) && rating > 0;
+
   return (
     <Link
       href={`/movie/${id}`}
       className="group flex h-full flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition duration-200 hover:-translate-y-1 hover:border-yellow-400/60"
     >
       <div className="relative aspect-[2/3] overflow-hidden bg-neutral-800">
+        {(favorite || inWatchlist) && (
+          <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-1">
+            {favorite && (
+              <span className="rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+                ♥ Favorite
+              </span>
+            )}
+
+            {inWatchlist && (
+              <span className="rounded-full bg-green-400/90 px-2 py-0.5 text-[10px] font-semibold text-black shadow">
+                Watchlist
+              </span>
+            )}
+          </div>
+        )}
+
         {posterUrl ? (
           <Image
             src={posterUrl}
@@ -63,13 +90,15 @@ export default function MovieCard({
         <div className="mt-auto flex items-center justify-between pt-3 text-xs text-neutral-400">
           <span>{year || "Tarih yok"}</span>
 
-          <span
-            className={`rounded-md px-2 py-1 font-semibold ${getRatingClass(
-              rating
-            )}`}
-          >
-            {rating.toFixed(1)}
-          </span>
+          {hasRating && (
+            <span
+              className={`rounded-md px-2 py-1 font-semibold ${getRatingClass(
+                rating
+              )}`}
+            >
+              {rating.toFixed(1)}
+            </span>
+          )}
         </div>
       </div>
     </Link>
