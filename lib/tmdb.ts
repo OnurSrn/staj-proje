@@ -19,6 +19,10 @@ export type TmdbMovie = {
   popularity: number;
 };
 
+// original_title, TMDB'nin temel film nesnesinde her zaman bulunur ama
+// yalnızca öneri motorunun (RecommendationMovie) ihtiyaç duyduğu bir alan
+// olduğu için TmdbMovie'ye değil, doğrudan MovieDetails'e ekleniyor.
+
 export type MovieGenre = {
   id: number;
   name: string;
@@ -49,11 +53,21 @@ export type MovieVideo = {
   official: boolean;
 };
 
+export type ProductionCompany = {
+  id: number;
+  name: string;
+  logo_path: string | null;
+  origin_country: string;
+};
+
 export type MovieDetails = TmdbMovie & {
   runtime: number | null;
   tagline: string;
+  original_title: string;
   original_language: string;
+  origin_country: string[];
   genres: MovieGenre[];
+  production_companies: ProductionCompany[];
   credits: {
     cast: MovieCastMember[];
     crew: MovieCrewMember[];
@@ -63,6 +77,11 @@ export type MovieDetails = TmdbMovie & {
   };
   recommendations: {
     results: TmdbMovie[];
+  };
+  // TMDB film uç noktasında keywords alt-kaynağı "results" değil "keywords"
+  // altında döner (TV uç noktasından farklı).
+  keywords: {
+    keywords: MovieKeyword[];
   };
 };
 
@@ -122,6 +141,12 @@ export type CollectionCandidateOptions = {
   voteAverageMin: number;
   runtimeMin?: number;
   runtimeMax?: number;
+  // Öneri motorunun "explicit tercih" havuzu (favori oyuncu/yönetmen/
+  // stüdyo) için — koleksiyon motoru bu alanları hiç kullanmaz, geriye
+  // dönük uyumluluğu bozmaz.
+  castId?: number;
+  crewId?: number;
+  companyId?: number;
 };
 
 // discover/movie yanıtı, MovieDetails'in aksine tam "genres" nesnesi
@@ -145,6 +170,42 @@ export type MovieKeyword = {
 
 type MovieKeywordsResponse = {
   keywords: MovieKeyword[];
+};
+
+export type PersonKnownForItem = {
+  id: number;
+  media_type: string;
+  title?: string;
+  name?: string;
+};
+
+export type PersonSearchResult = {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department: string | null;
+  known_for: PersonKnownForItem[];
+};
+
+export type PersonSearchResponse = {
+  page: number;
+  results: PersonSearchResult[];
+  total_pages: number;
+  total_results: number;
+};
+
+export type CompanySearchResult = {
+  id: number;
+  name: string;
+  logo_path: string | null;
+  origin_country: string | null;
+};
+
+export type CompanySearchResponse = {
+  page: number;
+  results: CompanySearchResult[];
+  total_pages: number;
+  total_results: number;
 };
 
 export type PersonDetails = {
@@ -686,6 +747,18 @@ export async function getCollectionCandidates(
     params.set("with_runtime.lte", options.runtimeMax.toString());
   }
 
+  if (options.castId !== undefined) {
+    params.set("with_cast", options.castId.toString());
+  }
+
+  if (options.crewId !== undefined) {
+    params.set("with_crew", options.crewId.toString());
+  }
+
+  if (options.companyId !== undefined) {
+    params.set("with_companies", options.companyId.toString());
+  }
+
   const response = await fetch(
     `${TMDB_BASE_URL}/discover/movie?${params.toString()}`,
     {
@@ -798,13 +871,97 @@ export async function searchMovies(
   return response.json();
 }
 
+export async function searchPeople(
+  query: string,
+  page = 1
+): Promise<PersonSearchResponse> {
+  const trimmedQuery = query.trim();
+  const safePage = Math.max(1, Math.min(page, 500));
+
+  if (!trimmedQuery) {
+    return {
+      page: 1,
+      results: [],
+      total_pages: 0,
+      total_results: 0,
+    };
+  }
+
+  const apiKey = getApiKey();
+
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    query: trimmedQuery,
+    language: "en-US",
+    page: safePage.toString(),
+    include_adult: "false",
+  });
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/search/person?${params.toString()}`,
+    {
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Kişi araması yapılamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+// TMDB /search/company, kişi/film aramasının aksine include_adult veya
+// language parametresi kabul etmez (şirketler için anlamsız).
+export async function searchCompanies(
+  query: string,
+  page = 1
+): Promise<CompanySearchResponse> {
+  const trimmedQuery = query.trim();
+  const safePage = Math.max(1, Math.min(page, 500));
+
+  if (!trimmedQuery) {
+    return {
+      page: 1,
+      results: [],
+      total_pages: 0,
+      total_results: 0,
+    };
+  }
+
+  const apiKey = getApiKey();
+
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    query: trimmedQuery,
+    page: safePage.toString(),
+  });
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/search/company?${params.toString()}`,
+    {
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Şirket araması yapılamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
 export async function getMovieDetails(
   movieId: string
 ): Promise<MovieDetails> {
   const apiKey = getApiKey();
 
   const response = await fetch(
-    `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=credits,videos,recommendations`,
+    `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=credits,videos,recommendations,keywords`,
     {
       next: {
         revalidate: 3600,
@@ -899,6 +1056,16 @@ export function getBackdropUrl(
   }
 
   return `https://image.tmdb.org/t/p/w1280${backdropPath}`;
+}
+
+export function getCompanyLogoUrl(
+  logoPath: string | null
+): string | null {
+  if (!logoPath) {
+    return null;
+  }
+
+  return `https://image.tmdb.org/t/p/w300${logoPath}`;
 }
 
 export function getProfileUrl(

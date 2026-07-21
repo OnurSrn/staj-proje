@@ -4,7 +4,12 @@ import { useMemo } from "react";
 import Link from "next/link";
 import CompactRatedMovieCard from "@/components/CompactRatedMovieCard";
 import { useMoviesByIds } from "@/components/hooks/useMoviesByIds";
+import {
+  useFavoriteCompanies,
+  useFavoritePeople,
+} from "@/components/PreferenceProvider";
 import { useMovieRatings, useSavedMovies } from "@/components/SavedMoviesProvider";
+import TasteProfileSection from "@/components/TasteProfileSection";
 
 type GenreStat = {
   id: number;
@@ -78,6 +83,17 @@ function DashboardSkeleton() {
 export default function ProfileDashboard() {
   const { favoriteIds, watchlistIds } = useSavedMovies();
   const { ratings, isLoaded, getMovieRating } = useMovieRatings();
+  const { favoritePeople } = useFavoritePeople();
+  const { favoriteCompanies } = useFavoriteCompanies();
+
+  const favoriteActorCount = useMemo(
+    () => favoritePeople.filter((person) => person.role === "actor").length,
+    [favoritePeople]
+  );
+  const favoriteDirectorCount = useMemo(
+    () => favoritePeople.filter((person) => person.role === "director").length,
+    [favoritePeople]
+  );
 
   const ratedMovieIds = useMemo(
     () => Object.keys(ratings).map(Number),
@@ -185,6 +201,51 @@ export default function ProfileDashboard() {
           />
         </div>
       </section>
+
+      <section className="mt-8 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-neutral-300">
+            <span>
+              <span className="font-semibold text-white">
+                {favoriteActorCount}
+              </span>{" "}
+              favori oyuncu
+            </span>
+
+            <span>
+              <span className="font-semibold text-white">
+                {favoriteDirectorCount}
+              </span>{" "}
+              favori yönetmen
+            </span>
+
+            <span>
+              <span className="font-semibold text-white">
+                {favoriteCompanies.length}
+              </span>{" "}
+              favori stüdyo
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/for-you"
+              className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-300"
+            >
+              Sana Özel Öneriler →
+            </Link>
+
+            <Link
+              href="/preferences"
+              className="rounded-lg border border-yellow-400/60 px-4 py-2 text-sm font-semibold text-yellow-400 transition hover:bg-yellow-400/10"
+            >
+              Tercihlerini Düzenle →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <TasteProfileSection />
 
       {tasteSummary && (
         <section className="mt-8 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-5">

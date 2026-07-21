@@ -26,6 +26,12 @@ const EMPTY_COMPLETED: CompletedFetch = {
   failedMovieIds: [],
 };
 
+// lib/collectionEngine.ts'teki KEYWORD_FETCH_CONCURRENCY ile aynı mantık:
+// aynı anda en fazla bu kadar /api/movies/[id] isteği uçuşsun — büyük id
+// listelerinde (ör. taste profile'ın 50 filme kadar çıkabilen girdisi)
+// kontrolsüz paralel istek patlaması oluşmasın.
+const MOVIE_FETCH_CONCURRENCY = 6;
+
 async function fetchMovie(
   movieId: number,
   signal: AbortSignal
@@ -62,9 +68,24 @@ export function useMoviesByIds(movieIds: number[]): UseMoviesByIdsResult {
     const controller = new AbortController();
 
     async function loadMovies() {
-      const outcomes = await Promise.all(
-        uniqueIds.map((movieId) => fetchMovie(movieId, controller.signal))
-      );
+      const outcomes: FetchOutcome[] = new Array(uniqueIds.length);
+      let cursor = 0;
+
+      async function worker() {
+        while (cursor < uniqueIds.length) {
+          const index = cursor;
+
+          cursor += 1;
+          outcomes[index] = await fetchMovie(
+            uniqueIds[index],
+            controller.signal
+          );
+        }
+      }
+
+      const workerCount = Math.min(MOVIE_FETCH_CONCURRENCY, uniqueIds.length);
+
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
       if (controller.signal.aborted) {
         return;

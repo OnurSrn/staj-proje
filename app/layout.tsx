@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
+import PreferenceProvider from "@/components/PreferenceProvider";
 import SavedMoviesProvider from "@/components/SavedMoviesProvider";
 import "./globals.css";
 
@@ -21,8 +22,10 @@ export default function RootLayout({
     <html lang="tr">
       <body className="bg-neutral-950 text-white">
         <SavedMoviesProvider>
-          <Navbar />
-          {children}
+          <PreferenceProvider>
+            <Navbar />
+            {children}
+          </PreferenceProvider>
         </SavedMoviesProvider>
       </body>
     </html>
