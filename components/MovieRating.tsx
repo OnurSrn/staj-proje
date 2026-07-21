@@ -1,7 +1,12 @@
 "use client";
 
 import { useId } from "react";
-import { useMovieRatings } from "@/components/SavedMoviesProvider";
+import {
+  canRateMovie,
+  useMovieRatings,
+  useWatchStatuses,
+  type WatchStatus,
+} from "@/components/SavedMoviesProvider";
 
 type MovieRatingProps = {
   movieId: number;
@@ -12,10 +17,27 @@ const RATING_OPTIONS = Array.from(
   (_, index) => 1 + index * 0.5
 );
 
+function getLockedRatingMessage(status: WatchStatus | null): string {
+  if (status === null) {
+    return "Puan verebilmek için önce İzleme Durumu seç.";
+  }
+
+  return "Puan vermek için filmi izlediğini veya yarım bıraktığını işaretle.";
+}
+
 export default function MovieRating({ movieId }: MovieRatingProps) {
-  const { isLoaded, getMovieRating, setMovieRating, removeMovieRating } =
-    useMovieRatings();
+  const {
+    isLoaded: isRatingsLoaded,
+    getMovieRating,
+    setMovieRating,
+    removeMovieRating,
+  } = useMovieRatings();
+  const { isLoaded: isWatchStatusesLoaded, getWatchStatus } =
+    useWatchStatuses();
   const selectId = useId();
+  const lockedMessageId = `${selectId}-locked-message`;
+
+  const isLoaded = isRatingsLoaded && isWatchStatusesLoaded;
 
   if (!isLoaded) {
     return (
@@ -27,6 +49,8 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
   }
 
   const rating = getMovieRating(movieId);
+  const watchStatus = getWatchStatus(movieId);
+  const canRate = canRateMovie(watchStatus);
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const value = Number(event.target.value);
@@ -44,9 +68,16 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
         {rating !== null ? `Senin Puanın: ${rating} / 10` : "Senin Puanın"}
       </h2>
 
-      {rating === null && (
+      {rating === null && canRate && (
         <p className="mt-1 text-sm text-neutral-500">
           Henüz puan vermedin
+        </p>
+      )}
+
+      {!canRate && (
+        <p id={lockedMessageId} className="mt-1 text-sm text-neutral-500">
+          {getLockedRatingMessage(watchStatus)}
+          {rating !== null && " Mevcut puanın korunuyor."}
         </p>
       )}
 
@@ -63,7 +94,9 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
             id={selectId}
             value={rating ?? ""}
             onChange={handleChange}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-white outline-none focus:border-yellow-400"
+            disabled={!canRate}
+            aria-describedby={!canRate ? lockedMessageId : undefined}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-white outline-none focus:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="" disabled>
               Puan seç
@@ -77,7 +110,7 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
           </select>
         </div>
 
-        {rating !== null && (
+        {rating !== null && canRate && (
           <button
             type="button"
             onClick={() => removeMovieRating(movieId)}

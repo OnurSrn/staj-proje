@@ -470,28 +470,57 @@ const INTENSE_GENRE_IDS: number[] = [
 ];
 
 type CompanyConfig = {
-  genreIds: number[];
   excludeGenreIds: number[];
+  // company'nin tercih ettiği sıralama. discovery zaten kendi sıralama
+  // niyetini belirlediğinde ("different" -> recency) bu ezilmez; yalnızca
+  // popularity tabanlı safe/balanced durumlarında devreye girer.
+  preferredSortBy: MovieSort | null;
+  // company burada eşikleri ikincil bir sinyal olarak kaydırır — mood'un
+  // belirlediği aday havuzunu (with_genres) değiştirmez, yalnızca o havuz
+  // içindeki hangi filmlerin öne çıkacağını etkiler.
+  voteCountMinModifier: number;
+  voteAverageModifier: number;
 };
 
-// company, mood'un tür listesine OR mantığıyla hafif bir ağırlık ekler.
-// Yalnızca family, güvenlik amaçlı bir without_genres dışlaması taşır.
+// ÖNEMLİ: company burada ARTIK bir genreIds listesi taşımıyor. Eskiden
+// company türleri mood türleriyle OR mantığıyla birleşip aday havuzunu
+// (with_genres) genişletiyordu — bu da örneğin "exciting" (action/
+// thriller/adventure) + "partner" (romance/comedy/drama) kombinasyonunda
+// The Shawshank Redemption gibi mood'a uymayan genel dramaların üst
+// sıralara sızmasına yol açıyordu. Mood tek başına aday havuzunu belirler
+// (bkz. getWhatToWatchRecommendations); company yalnızca o havuz içinde
+// sort_by / vote_count.gte / vote_average.gte üzerinden ağırlıklandırma
+// yapabilir. family'nin without_genres dışlaması bir güvenlik önlemi
+// olduğu için korunuyor (rule 5). partner için sert bir War dışlaması
+// eklemiyoruz: War hiçbir MOOD_CONFIG'in ana türü olmasa da "exciting"/
+// "dark" gibi havuzlarda action/thriller ile birlikte etiketlenmiş
+// filmleri (ör. savaş gerilimleri) haksız yere eleyebilirdi — bunun
+// yerine yalnızca vote_average.desc sıralaması ile yumuşak bir etki
+// bırakıyoruz.
 const COMPANY_CONFIG: Record<Company, CompanyConfig> = {
   alone: {
-    genreIds: [],
     excludeGenreIds: [],
+    preferredSortBy: null,
+    voteCountMinModifier: 0,
+    voteAverageModifier: 0,
   },
   friends: {
-    genreIds: [GENRE_IDS.comedy, GENRE_IDS.action, GENRE_IDS.adventure],
     excludeGenreIds: [],
+    preferredSortBy: "popularity.desc",
+    voteCountMinModifier: 150,
+    voteAverageModifier: 0,
   },
   family: {
-    genreIds: [GENRE_IDS.family, GENRE_IDS.animation, GENRE_IDS.adventure],
     excludeGenreIds: [GENRE_IDS.horror, GENRE_IDS.crime, GENRE_IDS.war],
+    preferredSortBy: null,
+    voteCountMinModifier: 0,
+    voteAverageModifier: 0,
   },
   partner: {
-    genreIds: [GENRE_IDS.romance, GENRE_IDS.comedy, GENRE_IDS.drama],
     excludeGenreIds: [],
+    preferredSortBy: "vote_average.desc",
+    voteCountMinModifier: -30,
+    voteAverageModifier: 0.5,
   },
 };
 
@@ -530,16 +559,12 @@ export async function getWhatToWatchRecommendations(
 
   const companyConfig = COMPANY_CONFIG[options.company];
 
-  // Kullanıcı açıkça bir tür seçtiyse company önerisi bu seçimi ezmesin.
-  let combinedGenreIds = moodGenreIds;
-  let excludeGenreIds: number[] = [];
-
-  if (options.genreId === 0) {
-    combinedGenreIds = Array.from(
-      new Set([...moodGenreIds, ...companyConfig.genreIds])
-    );
-    excludeGenreIds = companyConfig.excludeGenreIds;
-  }
+  // Aday havuzunu (with_genres) yalnızca mood belirler. Kullanıcı açıkça
+  // bir tür seçtiyse (genreId > 0) o tür ana havuz olur; company hiçbir
+  // durumda bu havuzu OR ile genişletmez — yalnızca family'nin güvenlik
+  // amaçlı without_genres dışlaması genreId seçili değilken uygulanır.
+  const excludeGenreIds =
+    options.genreId === 0 ? companyConfig.excludeGenreIds : [];
 
   let sortBy: MovieSort = "popularity.desc";
   let voteCountMin = 150;
@@ -555,6 +580,25 @@ export async function getWhatToWatchRecommendations(
     voteCountMin = 30;
   }
 
+  // company, discovery'nin "different" (yenilik/recency) niyetini ezmez;
+  // yalnızca popularity tabanlı safe/balanced durumlarında sıralamayı
+  // friends/partner arasında ayrıştırmak için devreye girer. Bu, genreId
+  // seçili olsa bile uygulanan ikincil bir parametredir — tür filtresine
+  // dokunmaz.
+  if (companyConfig.preferredSortBy && options.discovery !== "different") {
+    sortBy = companyConfig.preferredSortBy;
+  }
+
+  voteCountMin = Math.max(
+    0,
+    voteCountMin + companyConfig.voteCountMinModifier
+  );
+
+  minVoteAverage = Math.max(
+    0,
+    Math.min(10, minVoteAverage + companyConfig.voteAverageModifier)
+  );
+
   const params = new URLSearchParams({
     api_key: apiKey,
     language: "en-US",
@@ -569,8 +613,8 @@ export async function getWhatToWatchRecommendations(
 
   if (options.genreId > 0) {
     params.set("with_genres", options.genreId.toString());
-  } else if (combinedGenreIds.length > 0) {
-    params.set("with_genres", combinedGenreIds.join("|"));
+  } else if (moodGenreIds.length > 0) {
+    params.set("with_genres", moodGenreIds.join("|"));
   }
 
   if (excludeGenreIds.length > 0) {

@@ -37,8 +37,8 @@ function StatTile({ label, value }: { label: string; value: string }) {
 function DashboardSkeleton() {
   return (
     <div className="mt-10">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid grid-cols-2 gap-4">
+        {Array.from({ length: 2 }).map((_, index) => (
           <div
             key={index}
             className="rounded-xl border border-neutral-800 bg-neutral-900 p-4"
@@ -91,8 +91,6 @@ export default function RatedMoviesDashboard() {
     totalCount > 0
       ? ratingValues.reduce((sum, value) => sum + value, 0) / totalCount
       : null;
-  const highest = totalCount > 0 ? Math.max(...ratingValues) : null;
-  const lowest = totalCount > 0 ? Math.min(...ratingValues) : null;
 
   const distribution = useMemo(
     () => getDistribution(ratingValues),
@@ -153,19 +151,11 @@ export default function RatedMoviesDashboard() {
   return (
     <div className="mt-10">
       <section>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           <StatTile label="Toplam Puanlanan Film" value={totalCount.toString()} />
           <StatTile
             label="Ortalama Puan"
             value={average !== null ? `${average.toFixed(1)} / 10` : "-"}
-          />
-          <StatTile
-            label="En Yüksek Puan"
-            value={highest !== null ? `${highest} / 10` : "-"}
-          />
-          <StatTile
-            label="En Düşük Puan"
-            value={lowest !== null ? `${lowest} / 10` : "-"}
           />
         </div>
       </section>
