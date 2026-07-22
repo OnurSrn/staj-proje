@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
 import { useRecommendations } from "@/components/hooks/useRecommendations";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 import { getPosterUrl } from "@/lib/tmdb";
 import type { TasteProfile } from "@/lib/tasteProfile";
+import type { AppLanguage } from "@/lib/settings";
 
-const CONFIDENCE_LABELS: Record<TasteProfile["confidence"], string> = {
-  low: "Düşük Güven",
-  medium: "Orta Güven",
-  high: "Yüksek Güven",
-};
+function getConfidenceLabel(
+  language: AppLanguage,
+  confidence: TasteProfile["confidence"]
+): string {
+  return t(language, "confidence", confidence);
+}
 
 function DashboardSkeleton() {
   return (
@@ -19,13 +23,13 @@ function DashboardSkeleton() {
       {Array.from({ length: 12 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+          className="overflow-hidden rounded-xl border border-border bg-surface"
         >
-          <div className="aspect-[2/3] animate-pulse bg-neutral-800" />
+          <div className="aspect-[2/3] animate-pulse bg-surface-elevated" />
 
           <div className="space-y-2 p-3">
-            <div className="h-4 animate-pulse rounded bg-neutral-800" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-800" />
+            <div className="h-4 animate-pulse rounded bg-surface-elevated" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-surface-elevated" />
           </div>
         </div>
       ))}
@@ -35,6 +39,8 @@ function DashboardSkeleton() {
 
 export default function ForYouDashboard() {
   const router = useRouter();
+  const { settings } = useSettings();
+  const language = settings.language;
   const { recommendations, tasteProfile, isLoading, hasError } =
     useRecommendations();
 
@@ -44,21 +50,21 @@ export default function ForYouDashboard() {
 
   if (hasError) {
     return (
-      <div className="mt-10 rounded-2xl border border-red-500/40 bg-red-500/10 p-10 text-center">
-        <h2 className="text-xl font-semibold text-red-400">
-          Öneriler yüklenemedi
+      <div className="mt-10 rounded-2xl border border-danger/40 bg-danger/10 p-10 text-center">
+        <h2 className="text-xl font-semibold text-danger">
+          {t(language, "forYou", "errorTitle")}
         </h2>
 
-        <p className="mt-3 text-neutral-400">
-          TMDB&apos;den veri alınırken bir sorun oluştu.
+        <p className="mt-3 text-muted">
+          {t(language, "forYou", "errorDescription")}
         </p>
 
         <button
           type="button"
           onClick={() => router.refresh()}
-          className="mt-6 rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+          className="mt-6 rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
         >
-          Tekrar Dene
+          {t(language, "common", "retry")}
         </button>
       </div>
     );
@@ -74,36 +80,35 @@ export default function ForYouDashboard() {
 
   if (!hasAnyProfileData) {
     return (
-      <div className="mt-10 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+      <div className="mt-10 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
         <h2 className="text-xl font-semibold">
-          Henüz kişisel öneri oluşturmak için yeterli verin yok.
+          {t(language, "forYou", "emptyProfileTitle")}
         </h2>
 
-        <p className="mt-3 text-neutral-400">
-          Birkaç filme puan ver, izleme durumu işaretle veya favori
-          oyuncu/yönetmen/stüdyo ekle — öneriler burada belirmeye başlar.
+        <p className="mt-3 text-muted">
+          {t(language, "forYou", "emptyProfileDescription")}
         </p>
 
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Link
             href="/"
-            className="rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+            className="rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
           >
-            Filmleri Keşfet
+            {t(language, "common", "exploreMovies")}
           </Link>
 
           <Link
             href="/preferences"
-            className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold text-neutral-200 transition hover:border-yellow-400 hover:text-yellow-400"
+            className="rounded-lg border border-border px-5 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
           >
-            Tercihlerini Ekle
+            {t(language, "forYou", "addPreferencesCta")}
           </Link>
 
           <Link
             href="/what-to-watch"
-            className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold text-neutral-200 transition hover:border-yellow-400 hover:text-yellow-400"
+            className="rounded-lg border border-border px-5 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
           >
-            Ne İzlesem?
+            {t(language, "forYou", "whatToWatchCta")}
           </Link>
         </div>
       </div>
@@ -113,24 +118,25 @@ export default function ForYouDashboard() {
   return (
     <div className="mt-10">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded-full border border-yellow-400/40 px-3 py-1 text-xs font-semibold text-yellow-400">
-          {CONFIDENCE_LABELS[tasteProfile.confidence]}
+        <span className="rounded-full border border-accent/40 px-3 py-1 text-xs font-semibold text-accent">
+          {getConfidenceLabel(language, tasteProfile.confidence)}
         </span>
 
         {tasteProfile.confidence === "low" && (
-          <p className="text-sm text-neutral-500">
-            Daha fazla filme puan verdikçe öneriler sana daha iyi uyum sağlar.
+          <p className="text-sm text-muted">
+            {t(language, "forYou", "lowConfidenceNote")}
           </p>
         )}
       </div>
 
       {recommendations.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
-          <h2 className="text-xl font-semibold">Şu an için öneri bulunamadı</h2>
+        <div className="mt-8 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
+          <h2 className="text-xl font-semibold">
+            {t(language, "forYou", "noRecommendationsTitle")}
+          </h2>
 
-          <p className="mt-3 text-neutral-400">
-            Daha fazla film puanladıkça veya tercih ekledikçe burada öneriler
-            görünecek.
+          <p className="mt-3 text-muted">
+            {t(language, "forYou", "noRecommendationsDescription")}
           </p>
         </div>
       ) : (
@@ -145,20 +151,29 @@ export default function ForYouDashboard() {
                 voteCount={candidate.movie.voteCount}
                 overview={candidate.movie.overview}
                 posterUrl={getPosterUrl(candidate.movie.posterPath)}
+                cineaMatch={candidate.match}
               />
 
-              {candidate.reasons.length > 0 && (
+              <p className="line-clamp-2 text-xs text-muted">
+                {candidate.match.explanation}
+              </p>
+
+              {candidate.reasons.length > 0 ? (
                 <ul className="space-y-1">
                   {candidate.reasons.slice(0, 2).map((reason, index) => (
                     <li
                       key={index}
-                      className="line-clamp-1 text-xs text-neutral-500"
+                      className="line-clamp-1 text-xs text-muted"
                       title={reason.label}
                     >
                       {reason.label}
                     </li>
                   ))}
                 </ul>
+              ) : (
+                <p className="line-clamp-1 text-xs text-muted">
+                  {t(language, "forYou", "genericExplanation")}
+                </p>
               )}
             </div>
           ))}

@@ -1,12 +1,15 @@
 "use client";
 
 import { useId } from "react";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 import {
   canRateMovie,
   useMovieRatings,
   useWatchStatuses,
   type WatchStatus,
 } from "@/components/SavedMoviesProvider";
+import type { AppLanguage } from "@/lib/settings";
 
 type MovieRatingProps = {
   movieId: number;
@@ -17,12 +20,15 @@ const RATING_OPTIONS = Array.from(
   (_, index) => 1 + index * 0.5
 );
 
-function getLockedRatingMessage(status: WatchStatus | null): string {
+function getLockedRatingMessage(
+  language: AppLanguage,
+  status: WatchStatus | null
+): string {
   if (status === null) {
-    return "Puan verebilmek için önce İzleme Durumu seç.";
+    return t(language, "ratingStatus", "lockedNeedsStatus");
   }
 
-  return "Puan vermek için filmi izlediğini veya yarım bıraktığını işaretle.";
+  return t(language, "ratingStatus", "lockedNeedsWatchedOrDropped");
 }
 
 export default function MovieRating({ movieId }: MovieRatingProps) {
@@ -34,6 +40,8 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
   } = useMovieRatings();
   const { isLoaded: isWatchStatusesLoaded, getWatchStatus } =
     useWatchStatuses();
+  const { settings } = useSettings();
+  const language = settings.language;
   const selectId = useId();
   const lockedMessageId = `${selectId}-locked-message`;
 
@@ -42,8 +50,8 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
   if (!isLoaded) {
     return (
       <div className="mt-6 max-w-3xl">
-        <div className="h-4 w-32 animate-pulse rounded bg-neutral-800" />
-        <div className="mt-3 h-10 w-56 animate-pulse rounded-lg bg-neutral-800" />
+        <div className="h-4 w-32 animate-pulse rounded bg-surface-elevated" />
+        <div className="mt-3 h-10 w-56 animate-pulse rounded-lg bg-surface-elevated" />
       </div>
     );
   }
@@ -64,20 +72,23 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
 
   return (
     <div className="mt-6 max-w-3xl">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-400">
-        {rating !== null ? `Senin Puanın: ${rating} / 10` : "Senin Puanın"}
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">
+        {rating !== null
+          ? `${t(language, "ratingStatus", "yourRatingHeading")}: ${rating} / 10`
+          : t(language, "ratingStatus", "yourRatingHeading")}
       </h2>
 
       {rating === null && canRate && (
-        <p className="mt-1 text-sm text-neutral-500">
-          Henüz puan vermedin
+        <p className="mt-1 text-sm text-muted">
+          {t(language, "ratingStatus", "notRatedYet")}
         </p>
       )}
 
       {!canRate && (
-        <p id={lockedMessageId} className="mt-1 text-sm text-neutral-500">
-          {getLockedRatingMessage(watchStatus)}
-          {rating !== null && " Mevcut puanın korunuyor."}
+        <p id={lockedMessageId} className="mt-1 text-sm text-muted">
+          {getLockedRatingMessage(language, watchStatus)}
+          {rating !== null &&
+            t(language, "ratingStatus", "ratingPreservedSuffix")}
         </p>
       )}
 
@@ -85,9 +96,9 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
         <div>
           <label
             htmlFor={selectId}
-            className="mb-1 block text-xs text-neutral-500"
+            className="mb-1 block text-xs text-muted"
           >
-            Puan Ver
+            {t(language, "ratingStatus", "selectRatingLabel")}
           </label>
 
           <select
@@ -96,10 +107,10 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
             onChange={handleChange}
             disabled={!canRate}
             aria-describedby={!canRate ? lockedMessageId : undefined}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-white outline-none focus:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-border bg-input px-4 py-2 text-sm text-foreground outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="" disabled>
-              Puan seç
+              {t(language, "ratingStatus", "selectRatingPlaceholder")}
             </option>
 
             {RATING_OPTIONS.map((option) => (
@@ -114,9 +125,9 @@ export default function MovieRating({ movieId }: MovieRatingProps) {
           <button
             type="button"
             onClick={() => removeMovieRating(movieId)}
-            className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+            className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-danger hover:text-white"
           >
-            Puanı Sil
+            {t(language, "ratingStatus", "deleteRating")}
           </button>
         )}
       </div>

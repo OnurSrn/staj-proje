@@ -1,29 +1,30 @@
 import SavedMoviesGrid from "@/components/SavedMoviesGrid";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 
 export const metadata = {
   title: "Watchlist",
 };
 
-export default function WatchlistPage() {
+export default async function WatchlistPage() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          Watch Later
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "watchlist", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Watchlist</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "watchlist", "title")}
+        </h1>
 
-        <p className="mt-4 text-neutral-400">
-          Daha sonra izlemek için kaydettiğin filmler burada görüntülenir.
+        <p className="mt-4 text-muted">
+          {t(language, "watchlist", "subtitle")}
         </p>
 
-        <SavedMoviesGrid
-          storageKey="cinescope-watchlist"
-          emptyTitle="İzleme listen şu anda boş"
-          emptyDescription="Film detay sayfasından watchlist listene film ekleyebilirsin."
-          removeButtonText="Watchlist'ten Çıkar"
-        />
+        <SavedMoviesGrid kind="watchlist" />
       </section>
     </main>
   );

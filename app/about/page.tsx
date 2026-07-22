@@ -1,33 +1,28 @@
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
+
 export const metadata = {
   title: "About",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-4xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          About the Project
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "about", "eyebrow")}
         </p>
 
         <h1 className="mt-4 text-4xl font-bold">About CineScope</h1>
 
-        <div className="mt-8 space-y-5 leading-8 text-neutral-300">
-          <p>
-            CineScope, Next.js ve TypeScript kullanılarak geliştirilen bir film
-            keşif uygulamasıdır.
-          </p>
+        <div className="mt-8 space-y-5 leading-8 text-foreground">
+          <p>{t(language, "about", "paragraph1")}</p>
 
-          <p>
-            Film verileri ve görselleri The Movie Database API üzerinden
-            alınmaktadır.
-          </p>
+          <p>{t(language, "about", "paragraph2")}</p>
 
-          <p>
-            Proje kapsamında API entegrasyonu, dinamik route yapısı, Server
-            Components, responsive tasarım ve kullanıcı listeleri gibi konular
-            uygulanmaktadır.
-          </p>
+          <p>{t(language, "about", "paragraph3")}</p>
         </div>
       </section>
     </main>

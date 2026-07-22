@@ -1,36 +1,55 @@
 "use client";
 
 import Link from "next/link";
+import { useSettings } from "@/components/SettingsProvider";
 import { useTasteProfile } from "@/components/hooks/useTasteProfile";
+import { buildRuntimePreferenceLabel, t } from "@/lib/i18n";
 import type { TasteProfile, WeightedPreference } from "@/lib/tasteProfile";
+import type { AppLanguage } from "@/lib/settings";
 
-const CONFIDENCE_LABELS: Record<TasteProfile["confidence"], string> = {
-  low: "Düşük Güven",
-  medium: "Orta Güven",
-  high: "Yüksek Güven",
-};
+function getConfidenceLabel(
+  language: AppLanguage,
+  confidence: TasteProfile["confidence"]
+): string {
+  return t(language, "confidence", confidence);
+}
 
-const CONFIDENCE_DESCRIPTIONS: Record<TasteProfile["confidence"], string> = {
-  low: "Henüz az veri var. Daha fazla filme puan verdikçe profilin daha güvenilir hale gelir.",
-  medium:
-    "Makul sayıda puanlanmış film var; profil genel eğilimini yansıtıyor. Daha fazla filme puan verdikçe profilin daha güvenilir hale gelir.",
-  high: "Zengin bir puanlama geçmişin var; profil oldukça güvenilir.",
-};
+function getConfidenceDescription(
+  language: AppLanguage,
+  confidence: TasteProfile["confidence"]
+): string {
+  const key =
+    confidence === "low"
+      ? "confidenceLow"
+      : confidence === "medium"
+        ? "confidenceMedium"
+        : "confidenceHigh";
+
+  return t(language, "tasteProfile", key);
+}
 
 function Chip({ label }: { label: string }) {
   return (
-    <span className="rounded-full bg-neutral-800 px-3 py-1 text-sm text-neutral-200">
+    <span className="rounded-full bg-surface-elevated px-3 py-1 text-sm text-foreground">
       {label}
     </span>
   );
 }
 
-function ChipRow({ preferences }: { preferences: WeightedPreference[] }) {
+function ChipRow({
+  preferences,
+  language,
+}: {
+  preferences: WeightedPreference[];
+  language: AppLanguage;
+}) {
   const positivePreferences = preferences.filter((p) => p.score > 0);
 
   if (positivePreferences.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">Henüz belirgin bir eğilim yok.</p>
+      <p className="text-sm text-muted">
+        {t(language, "tasteProfile", "noTrendText")}
+      </p>
     );
   }
 
@@ -43,41 +62,20 @@ function ChipRow({ preferences }: { preferences: WeightedPreference[] }) {
   );
 }
 
-function getRuntimeLabel(
-  runtimePreference: TasteProfile["runtimePreference"]
-): string {
-  const { preferredMin, preferredMax, averageRuntime } = runtimePreference;
-
-  if (preferredMin === null) {
-    return averageRuntime !== null
-      ? `Ortalama ${averageRuntime} dakika`
-      : "Henüz belirlenemedi";
-  }
-
-  const rangeLabel =
-    preferredMax === null
-      ? `${preferredMin}+ dakika (uzun filmler)`
-      : preferredMin === 0
-        ? `${preferredMax} dakika ve altı (kısa filmler)`
-        : `${preferredMin}–${preferredMax} dakika (orta uzunlukta filmler)`;
-
-  return averageRuntime !== null
-    ? `${rangeLabel} · ortalama ${averageRuntime} dakika`
-    : rangeLabel;
-}
-
 function SectionSkeleton() {
   return (
-    <div className="mt-8 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-      <div className="h-4 w-40 animate-pulse rounded bg-neutral-800" />
-      <div className="h-4 w-full animate-pulse rounded bg-neutral-800" />
-      <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-800" />
+    <div className="mt-8 space-y-4 rounded-xl border border-border bg-surface p-5">
+      <div className="h-4 w-40 animate-pulse rounded bg-surface-elevated" />
+      <div className="h-4 w-full animate-pulse rounded bg-surface-elevated" />
+      <div className="h-4 w-2/3 animate-pulse rounded bg-surface-elevated" />
     </div>
   );
 }
 
 export default function TasteProfileSection() {
   const { profile, isLoading, hasError } = useTasteProfile();
+  const { settings } = useSettings();
+  const language = settings.language;
 
   if (isLoading) {
     return <SectionSkeleton />;
@@ -95,68 +93,69 @@ export default function TasteProfileSection() {
   const explicitCompanyCount = profile.explicitFavoriteCompanyIds.length;
 
   return (
-    <section className="mt-8 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+    <section className="mt-8 rounded-xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Zevk Profilin</h2>
+        <h2 className="text-lg font-semibold">
+          {t(language, "tasteProfile", "heading")}
+        </h2>
 
-        <span className="rounded-full border border-yellow-400/40 px-3 py-1 text-xs font-semibold text-yellow-400">
-          {CONFIDENCE_LABELS[profile.confidence]}
+        <span className="rounded-full border border-accent/40 px-3 py-1 text-xs font-semibold text-accent">
+          {getConfidenceLabel(language, profile.confidence)}
         </span>
       </div>
 
-      <p className="mt-2 text-sm text-neutral-400">
-        Bu profil verdiğin puanlar ve izleme durumlarına göre oluşur.{" "}
-        {CONFIDENCE_DESCRIPTIONS[profile.confidence]}
+      <p className="mt-2 text-sm text-muted">
+        {t(language, "tasteProfile", "descriptionPrefix")}{" "}
+        {getConfidenceDescription(language, profile.confidence)}
       </p>
 
       {!hasAnyData ? (
-        <p className="mt-6 text-sm text-neutral-500">
-          Henüz yeterli veri yok. Birkaç filme puan verdiğinde veya izleme
-          durumu işaretlediğinde burada zevk profilin oluşmaya başlayacak.
+        <p className="mt-6 text-sm text-muted">
+          {t(language, "tasteProfile", "noDataText")}
         </p>
       ) : (
         <div className="mt-6 space-y-5">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-              Sevdiğin Türler
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">
+              {t(language, "tasteProfile", "favoriteGenresHeading")}
             </h3>
 
             <div className="mt-2">
-              <ChipRow preferences={profile.genrePreferences} />
+              <ChipRow preferences={profile.genrePreferences} language={language} />
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-              Movie DNA Eğilimlerin
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">
+              {t(language, "tasteProfile", "movieDnaHeading")}
             </h3>
 
             <div className="mt-2">
-              <ChipRow preferences={profile.dnaPreferences} />
+              <ChipRow preferences={profile.dnaPreferences} language={language} />
             </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-                Tercih Ettiğin Süre
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">
+                {t(language, "tasteProfile", "preferredRuntimeHeading")}
               </h3>
 
-              <p className="mt-2 text-sm text-neutral-300">
-                {getRuntimeLabel(profile.runtimePreference)}
+              <p className="mt-2 text-sm text-foreground">
+                {buildRuntimePreferenceLabel(language, profile.runtimePreference)}
               </p>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-                Dönemler
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">
+                {t(language, "tasteProfile", "erasHeading")}
               </h3>
 
               <div className="mt-2">
                 {profile.eraPreferences.filter((p) => p.score > 0).length ===
                 0 ? (
-                  <p className="text-sm text-neutral-500">
-                    Henüz belirgin bir eğilim yok.
+                  <p className="text-sm text-muted">
+                    {t(language, "tasteProfile", "noTrendText")}
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -173,65 +172,66 @@ export default function TasteProfileSection() {
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-              Diller
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">
+              {t(language, "tasteProfile", "languagesHeading")}
             </h3>
 
             <div className="mt-2">
               {profile.languagePreferences.filter((p) => p.score > 0)
                 .length === 0 ? (
-                <p className="text-sm text-neutral-500">
-                  Henüz belirgin bir eğilim yok.
+                <p className="text-sm text-muted">
+                  {t(language, "tasteProfile", "noTrendText")}
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {profile.languagePreferences
                     .filter((p) => p.score > 0)
                     .slice(0, 3)
-                    .map((language) => (
-                      <Chip key={language.id} label={language.label} />
+                    .map((languagePreference) => (
+                      <Chip
+                        key={languagePreference.id}
+                        label={languagePreference.label}
+                      />
                     ))}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-x-8 gap-y-2 border-t border-neutral-800 pt-4 text-sm text-neutral-300">
+          <div className="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-4 text-sm text-muted">
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {explicitActorCount}
               </span>{" "}
-              favori oyuncu
+              {t(language, "profile", "favoriteActorsSuffix")}
             </span>
 
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {explicitDirectorCount}
               </span>{" "}
-              favori yönetmen
+              {t(language, "profile", "favoriteDirectorsSuffix")}
             </span>
 
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {explicitCompanyCount}
               </span>{" "}
-              favori stüdyo
+              {t(language, "profile", "favoriteStudiosSuffix")}
             </span>
           </div>
         </div>
       )}
 
-      <p className="mt-6 text-xs text-neutral-600">
-        Profil bu cihazdaki yerel verilerden hesaplanır, henüz bir hesaba
-        veya buluta kaydedilmez. Favori kişiler/stüdyolar açık tercihlerindir;
-        tür ve Movie DNA eğilimleri ise puanlarından çıkarılan tahminlerdir.
+      <p className="mt-6 text-xs text-muted">
+        {t(language, "tasteProfile", "footerNote")}
       </p>
 
       <Link
         href="/preferences"
-        className="mt-4 inline-block text-sm font-semibold text-yellow-400 transition hover:text-yellow-300"
+        className="mt-4 inline-block text-sm font-semibold text-accent transition hover:text-accent-hover"
       >
-        Tercihlerini Düzenle →
+        {t(language, "profile", "editPreferencesCta")}
       </Link>
     </section>
   );

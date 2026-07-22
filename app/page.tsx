@@ -1,6 +1,8 @@
 import Link from "next/link";
 import MovieCard from "@/components/MovieCard";
 import MovieFilters from "@/components/MovieFilters";
+import { buildPageSummary, buildTotalResultsSummary, t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 import {
   discoverMovies,
   getMovieGenres,
@@ -9,6 +11,7 @@ import {
   type MovieCategory,
   type MovieSort,
 } from "@/lib/tmdb";
+import type { AppLanguage } from "@/lib/settings";
 
 type HomePageProps = {
   searchParams: Promise<{
@@ -17,19 +20,6 @@ type HomePageProps = {
     sort?: string;
     page?: string;
   }>;
-};
-
-const categoryLabels: Record<MovieCategory, string> = {
-  popular: "Popular",
-  "top-rated": "Top Rated",
-  "now-playing": "Now Playing",
-  upcoming: "Upcoming",
-};
-
-const sortLabels: Record<MovieSort, string> = {
-  "popularity.desc": "En Popüler",
-  "vote_average.desc": "En Yüksek Puan",
-  "primary_release_date.desc": "En Yeni",
 };
 
 const allowedCategories: MovieCategory[] = [
@@ -73,11 +63,22 @@ function parseGenre(value: string | undefined): number {
   return parsedGenre;
 }
 
+function getCategoryLabel(language: AppLanguage, category: MovieCategory): string {
+  return t(language, "categories", category);
+}
+
+function getSortLabel(language: AppLanguage, sort: MovieSort): string {
+  return t(language, "sorts", sort);
+}
+
 export default async function Home({
   searchParams,
 }: HomePageProps) {
   const params = await searchParams;
-  const genres = await getMovieGenres();
+  const [genres, language] = await Promise.all([
+    getMovieGenres(),
+    getServerLanguage(),
+  ]);
 
   const category: MovieCategory =
     params.category && isMovieCategory(params.category)
@@ -122,86 +123,78 @@ export default async function Home({
 
   const selectedGenreName =
     genres.find((genre) => genre.id === selectedGenre)?.name ??
-    "Tüm Türler";
+    t(language, "home", "allGenres");
 
   const paginationParams = isFilterMode
     ? `genre=${selectedGenre}&sort=${selectedSort}`
     : `category=${category}`;
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6">
         <section className="py-14 sm:py-20">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-yellow-400">
-            Movie Discovery App
+          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-accent">
+            {t(language, "home", "eyebrow")}
           </p>
 
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
-            Discover movies, explore details, and build your own watchlist.
+            {t(language, "home", "title")}
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg text-neutral-400">
-            Film kategorilerini incele, tür seç ve sonuçları
-            istediğin şekilde sırala.
+          <p className="mt-6 max-w-2xl text-lg text-muted">
+            {t(language, "home", "subtitle")}
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
             <a
               href="#movies"
-              className="rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Explore Movies
+              {t(language, "common", "exploreMovies")}
             </a>
 
             <Link
               href="/search"
-              className="rounded-lg border border-neutral-700 px-6 py-3 font-semibold text-white transition hover:border-yellow-400 hover:text-yellow-400"
+              className="rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
             >
-              Search
+              {t(language, "navbar", "search")}
             </Link>
           </div>
         </section>
 
         <section id="movies" className="scroll-mt-24 pb-20">
           <div className="mb-7">
-            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-              Browse
+            <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+              {t(language, "home", "browseEyebrow")}
             </p>
 
             <h2 className="mt-3 text-3xl font-bold">
               {isFilterMode
-                ? "Filtered Movies"
-                : `${categoryLabels[category]} Movies`}
+                ? t(language, "home", "filteredMoviesTitle")
+                : `${getCategoryLabel(language, category)} ${t(language, "home", "categoryMoviesSuffix")}`}
             </h2>
 
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-500">
-              <span>
-                Sayfa {currentPage} / {totalPages}
-              </span>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+              <span>{buildPageSummary(language, currentPage, totalPages)}</span>
 
               <span>
-                Toplam {movieData.total_results.toLocaleString("tr-TR")} sonuç
+                {buildTotalResultsSummary(language, movieData.total_results)}
               </span>
             </div>
           </div>
 
           <div className="mb-7 flex flex-wrap gap-3">
-            {(
-              Object.entries(categoryLabels) as [
-                MovieCategory,
-                string
-              ][]
-            ).map(([categoryKey, label]) => (
+            {allowedCategories.map((categoryKey) => (
               <Link
                 key={categoryKey}
                 href={`/?category=${categoryKey}&page=1#movies`}
                 className={
                   !isFilterMode && categoryKey === category
-                    ? "rounded-lg bg-yellow-400 px-5 py-3 text-sm font-semibold text-black"
-                    : "rounded-lg border border-neutral-700 bg-neutral-900 px-5 py-3 text-sm font-semibold text-neutral-300 transition hover:border-yellow-400 hover:text-yellow-400"
+                    ? "rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground"
+                    : "rounded-lg border border-border bg-surface px-5 py-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent"
                 }
               >
-                {label}
+                {getCategoryLabel(language, categoryKey)}
               </Link>
             ))}
           </div>
@@ -210,26 +203,28 @@ export default async function Home({
             genres={genres}
             selectedGenre={selectedGenre}
             selectedSort={selectedSort}
+            language={language}
           />
 
           {isFilterMode && (
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-accent/20 bg-accent/5 p-4">
               <div>
-                <p className="text-sm font-semibold text-yellow-400">
-                  Aktif Filtreler
+                <p className="text-sm font-semibold text-accent">
+                  {t(language, "home", "activeFilters")}
                 </p>
 
-                <p className="mt-1 text-sm text-neutral-300">
-                  Tür: {selectedGenreName} · Sıralama:{" "}
-                  {sortLabels[selectedSort]}
+                <p className="mt-1 text-sm text-foreground">
+                  {t(language, "home", "genreLabel")} {selectedGenreName} ·{" "}
+                  {t(language, "home", "sortLabel")}{" "}
+                  {getSortLabel(language, selectedSort)}
                 </p>
               </div>
 
               <Link
                 href="/?category=popular&page=1#movies"
-                className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-yellow-400 hover:text-yellow-400"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent"
               >
-                Filtreleri Temizle
+                {t(language, "common", "clearFilters")}
               </Link>
             </div>
           )}
@@ -250,20 +245,20 @@ export default async function Home({
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+            <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
               <h3 className="text-xl font-semibold">
-                Bu filtrelerle film bulunamadı
+                {t(language, "home", "noResultsTitle")}
               </h3>
 
-              <p className="mt-3 text-neutral-400">
-                Farklı bir tür veya sıralama seçeneği dene.
+              <p className="mt-3 text-muted">
+                {t(language, "home", "noResultsDescription")}
               </p>
 
               <Link
                 href="/?category=popular&page=1#movies"
-                className="mt-6 inline-block rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+                className="mt-6 inline-block rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
               >
-                Filtreleri Temizle
+                {t(language, "common", "clearFilters")}
               </Link>
             </div>
           )}
@@ -275,17 +270,17 @@ export default async function Home({
                   href={`/?${paginationParams}&page=${
                     currentPage - 1
                   }#movies`}
-                  className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold transition hover:border-yellow-400 hover:text-yellow-400"
+                  className="rounded-lg border border-border px-5 py-3 font-semibold transition hover:border-accent hover:text-accent"
                 >
-                  ← Önceki
+                  {t(language, "common", "previous")}
                 </Link>
               ) : (
-                <span className="cursor-not-allowed rounded-lg border border-neutral-800 px-5 py-3 font-semibold text-neutral-600">
-                  ← Önceki
+                <span className="cursor-not-allowed rounded-lg border border-border px-5 py-3 font-semibold text-muted">
+                  {t(language, "common", "previous")}
                 </span>
               )}
 
-              <span className="rounded-lg bg-neutral-900 px-5 py-3 text-sm text-neutral-300">
+              <span className="rounded-lg bg-surface px-5 py-3 text-sm text-muted">
                 {currentPage} / {totalPages}
               </span>
 
@@ -294,13 +289,13 @@ export default async function Home({
                   href={`/?${paginationParams}&page=${
                     currentPage + 1
                   }#movies`}
-                  className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold transition hover:border-yellow-400 hover:text-yellow-400"
+                  className="rounded-lg border border-border px-5 py-3 font-semibold transition hover:border-accent hover:text-accent"
                 >
-                  Sonraki →
+                  {t(language, "common", "next")}
                 </Link>
               ) : (
-                <span className="cursor-not-allowed rounded-lg border border-neutral-800 px-5 py-3 font-semibold text-neutral-600">
-                  Sonraki →
+                <span className="cursor-not-allowed rounded-lg border border-border px-5 py-3 font-semibold text-muted">
+                  {t(language, "common", "next")}
                 </span>
               )}
             </nav>

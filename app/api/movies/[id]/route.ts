@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMovieDetails, TmdbNotFoundError } from "@/lib/tmdb";
+import { getMovieDetails, getMovieDnaDetails, TmdbNotFoundError } from "@/lib/tmdb";
 
 type MovieApiRouteProps = {
   params: Promise<{
@@ -13,7 +13,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const movie = await getMovieDetails(id);
+    // Varsayılan davranış (mode param yok) geriye dönük uyumlu kalır: tam
+    // getMovieDetails (credits,videos,recommendations,keywords). ?mode=dna
+    // yalnızca For You/DNA akışının kullandığı hafif alan setini çeker
+    // (bkz. lib/tmdb.ts getMovieDnaDetails).
+    const mode = new URL(request.url).searchParams.get("mode");
+    const movie =
+      mode === "dna" ? await getMovieDnaDetails(id) : await getMovieDetails(id);
 
     return NextResponse.json(movie);
   } catch (error) {

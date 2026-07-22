@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { useSettings } from "@/components/SettingsProvider";
+import { buildFavoriteCountHeading, buildRemoveFromFavoritesAriaLabel, t } from "@/lib/i18n";
 import { getCompanyLogoUrl, getProfileUrl } from "@/lib/tmdb";
 import {
   useFavoriteCompanies,
@@ -8,26 +10,29 @@ import {
   type FavoriteCompany,
   type FavoritePerson,
 } from "@/components/PreferenceProvider";
+import type { AppLanguage } from "@/lib/settings";
 
 function FavoritePersonChip({
   person,
+  language,
   onRemove,
 }: {
   person: FavoritePerson;
+  language: AppLanguage;
   onRemove: () => void;
 }) {
   const profileUrl = getProfileUrl(person.profilePath);
 
   return (
-    <div className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 py-1 pl-1 pr-3">
-      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-800">
+    <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3">
+      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-surface-elevated">
         {profileUrl && (
           <Image src={profileUrl} alt={person.name} fill sizes="32px" className="object-cover" />
         )}
       </div>
 
       <span
-        className="max-w-[140px] truncate text-sm text-neutral-200"
+        className="max-w-[140px] truncate text-sm text-foreground"
         title={person.name}
       >
         {person.name}
@@ -36,8 +41,8 @@ function FavoritePersonChip({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`${person.name} favorilerden çıkar`}
-        className="shrink-0 text-neutral-500 transition hover:text-red-400"
+        aria-label={buildRemoveFromFavoritesAriaLabel(language, person.name)}
+        className="shrink-0 text-muted transition hover:text-danger"
       >
         ✕
       </button>
@@ -47,15 +52,17 @@ function FavoritePersonChip({
 
 function FavoriteCompanyChip({
   company,
+  language,
   onRemove,
 }: {
   company: FavoriteCompany;
+  language: AppLanguage;
   onRemove: () => void;
 }) {
   const logoUrl = getCompanyLogoUrl(company.logoPath);
 
   return (
-    <div className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 py-1 pl-1 pr-3">
+    <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3">
       <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
         {logoUrl && (
           <Image
@@ -69,7 +76,7 @@ function FavoriteCompanyChip({
       </div>
 
       <span
-        className="max-w-[140px] truncate text-sm text-neutral-200"
+        className="max-w-[140px] truncate text-sm text-foreground"
         title={company.name}
       >
         {company.name}
@@ -78,8 +85,8 @@ function FavoriteCompanyChip({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`${company.name} favorilerden çıkar`}
-        className="shrink-0 text-neutral-500 transition hover:text-red-400"
+        aria-label={buildRemoveFromFavoritesAriaLabel(language, company.name)}
+        className="shrink-0 text-muted transition hover:text-danger"
       >
         ✕
       </button>
@@ -93,7 +100,7 @@ function DashboardSkeleton() {
       {Array.from({ length: 3 }).map((_, index) => (
         <div
           key={index}
-          className="h-24 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900"
+          className="h-24 animate-pulse rounded-xl border border-border bg-surface"
         />
       ))}
     </div>
@@ -111,6 +118,8 @@ export default function PreferencesDashboard() {
     isLoaded: companiesLoaded,
     removeFavoriteCompany,
   } = useFavoriteCompanies();
+  const { settings } = useSettings();
+  const language = settings.language;
 
   if (!peopleLoaded || !companiesLoaded) {
     return <DashboardSkeleton />;
@@ -127,12 +136,12 @@ export default function PreferencesDashboard() {
     <div className="mt-10 space-y-10">
       <section>
         <h3 className="text-lg font-semibold">
-          Favori Oyuncuların ({favoriteActors.length}/50)
+          {buildFavoriteCountHeading(language, "actors", favoriteActors.length, 50)}
         </h3>
 
         {favoriteActors.length === 0 ? (
-          <p className="mt-4 text-sm text-neutral-500">
-            Henüz favori oyuncu eklemedin.
+          <p className="mt-4 text-sm text-muted">
+            {t(language, "preferences", "noFavoriteActors")}
           </p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-3">
@@ -140,6 +149,7 @@ export default function PreferencesDashboard() {
               <FavoritePersonChip
                 key={`actor-${person.id}`}
                 person={person}
+                language={language}
                 onRemove={() => removeFavoritePerson(person.id, person.role)}
               />
             ))}
@@ -149,12 +159,12 @@ export default function PreferencesDashboard() {
 
       <section>
         <h3 className="text-lg font-semibold">
-          Favori Yönetmenlerin ({favoriteDirectors.length}/30)
+          {buildFavoriteCountHeading(language, "directors", favoriteDirectors.length, 30)}
         </h3>
 
         {favoriteDirectors.length === 0 ? (
-          <p className="mt-4 text-sm text-neutral-500">
-            Henüz favori yönetmen eklemedin.
+          <p className="mt-4 text-sm text-muted">
+            {t(language, "preferences", "noFavoriteDirectors")}
           </p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-3">
@@ -162,6 +172,7 @@ export default function PreferencesDashboard() {
               <FavoritePersonChip
                 key={`director-${person.id}`}
                 person={person}
+                language={language}
                 onRemove={() => removeFavoritePerson(person.id, person.role)}
               />
             ))}
@@ -171,12 +182,12 @@ export default function PreferencesDashboard() {
 
       <section>
         <h3 className="text-lg font-semibold">
-          Favori Stüdyoların ({favoriteCompanies.length}/30)
+          {buildFavoriteCountHeading(language, "studios", favoriteCompanies.length, 30)}
         </h3>
 
         {favoriteCompanies.length === 0 ? (
-          <p className="mt-4 text-sm text-neutral-500">
-            Henüz favori stüdyo eklemedin.
+          <p className="mt-4 text-sm text-muted">
+            {t(language, "preferences", "noFavoriteStudios")}
           </p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-3">
@@ -184,6 +195,7 @@ export default function PreferencesDashboard() {
               <FavoriteCompanyChip
                 key={company.id}
                 company={company}
+                language={language}
                 onRemove={() => removeFavoriteCompany(company.id)}
               />
             ))}

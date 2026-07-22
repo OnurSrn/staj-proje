@@ -1,5 +1,12 @@
+import {
+  calculateCineaMatch,
+  type CineaMatch,
+  type RecommendationScoreBreakdown,
+} from "@/lib/cineaMatch";
 import type { MovieDnaProfile } from "@/lib/movieDna";
 import type { PersonPreference, TasteProfile } from "@/lib/tasteProfile";
+
+export type { RecommendationScoreBreakdown } from "@/lib/cineaMatch";
 
 // ─── Model ───────────────────────────────────────────────────────────────
 
@@ -45,6 +52,17 @@ export type RecommendationCandidate = {
   movie: RecommendationMovie;
   score: number;
   reasons: RecommendationReason[];
+  breakdown: RecommendationScoreBreakdown;
+  match: CineaMatch;
+};
+
+// Tek bir kişisel katkı sinyali — UI'daki 2 reason'a bağlı kalmadan,
+// CiNeA Match'in kanıt sayımı (positive/negative/unique type) bu ham
+// listeden hesaplanır (bkz. görev talimatı bölüm 5: "Hesaplama yalnızca
+// UI'da gösterilen 2 reason'a bağlı olmasın").
+type PersonalSignal = {
+  type: RecommendationReasonType;
+  contribution: number;
 };
 
 export type RankRecommendationInput = {
@@ -141,9 +159,13 @@ function getGenreContribution(
   candidateGenreIds: number[],
   genrePreferences: TasteProfile["genrePreferences"],
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   if (genrePreferences.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const genreLookup = new Map(genrePreferences.map((g) => [Number(g.id), g]));
@@ -159,7 +181,7 @@ function getGenreContribution(
     .slice(0, MAX_GENRE_MATCHES);
 
   if (matches.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const maxAbsScore = Math.max(
@@ -170,12 +192,17 @@ function getGenreContribution(
 
   let total = 0;
   const reasons: RecommendationReason[] = [];
+  const signals: PersonalSignal[] = [];
 
   for (const match of matches) {
     const normalized = match.score / maxAbsScore;
     const contribution = normalized * perMatchCap * confidenceMultiplier;
 
     total += contribution;
+
+    if (contribution !== 0) {
+      signals.push({ type: "genre", contribution: round(contribution) });
+    }
 
     if (contribution > 0) {
       reasons.push({
@@ -193,6 +220,7 @@ function getGenreContribution(
       RECOMMENDATION_WEIGHTS.genreMax
     ),
     reasons,
+    signals,
   };
 }
 
@@ -205,9 +233,13 @@ function getDnaContribution(
   candidateSignalScores: Record<string, number>,
   dnaPreferences: TasteProfile["dnaPreferences"],
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   if (dnaPreferences.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const dnaLookup = new Map(dnaPreferences.map((d) => [d.id, d]));
@@ -223,7 +255,7 @@ function getDnaContribution(
     .slice(0, MAX_DNA_MATCHES);
 
   if (matches.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const maxAbsScore = Math.max(
@@ -234,12 +266,17 @@ function getDnaContribution(
 
   let total = 0;
   const reasons: RecommendationReason[] = [];
+  const signals: PersonalSignal[] = [];
 
   for (const match of matches) {
     const normalized = match.score / maxAbsScore;
     const contribution = normalized * perMatchCap * confidenceMultiplier;
 
     total += contribution;
+
+    if (contribution !== 0) {
+      signals.push({ type: "dna", contribution: round(contribution) });
+    }
 
     if (contribution > 0) {
       reasons.push({
@@ -257,6 +294,7 @@ function getDnaContribution(
       RECOMMENDATION_WEIGHTS.dnaMax
     ),
     reasons,
+    signals,
   };
 }
 
@@ -275,7 +313,11 @@ function getExplicitContribution(
   personNames: Record<number, string> | undefined,
   companyNames: Record<number, string> | undefined,
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   const explicitActorSet = new Set(tasteProfile.explicitFavoriteActorIds);
   const explicitDirectorSet = new Set(tasteProfile.explicitFavoriteDirectorIds);
   const explicitCompanySet = new Set(tasteProfile.explicitFavoriteCompanyIds);
@@ -321,7 +363,7 @@ function getExplicitContribution(
   }
 
   if (parts.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const rawTotal = parts.reduce((sum, part) => sum + part.weight, 0);
@@ -335,7 +377,12 @@ function getExplicitContribution(
     contribution: round(perUnit * part.weight),
   }));
 
-  return { contribution, reasons };
+  const signals: PersonalSignal[] = reasons.map((reason) => ({
+    type: reason.type,
+    contribution: reason.contribution,
+  }));
+
+  return { contribution, reasons, signals };
 }
 
 // ─── Inferred kişi/stüdyo tercihleri ────────────────────────────────────
@@ -371,7 +418,11 @@ function getInferredContribution(
   personNames: Record<number, string> | undefined,
   companyNames: Record<number, string> | undefined,
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   const explicitActorSet = new Set(tasteProfile.explicitFavoriteActorIds);
   const explicitDirectorSet = new Set(tasteProfile.explicitFavoriteDirectorIds);
   const explicitCompanySet = new Set(tasteProfile.explicitFavoriteCompanyIds);
@@ -426,18 +477,23 @@ function getInferredContribution(
   }
 
   if (matches.length === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const perMatchCap = RECOMMENDATION_WEIGHTS.inferredMax / INFERRED_CATEGORY_COUNT;
   let total = 0;
   const reasons: RecommendationReason[] = [];
+  const signals: PersonalSignal[] = [];
 
   for (const match of matches) {
     const evidenceMultiplier = getInferredEvidenceMultiplier(match.pref.evidenceCount);
     const contribution = perMatchCap * evidenceMultiplier * confidenceMultiplier;
 
     total += contribution;
+
+    // Match yüzdesi hesaplaması (kanıt sayımı) isim olup olmadığından
+    // bağımsız — yalnızca UI'daki reason metni isim gerektirir.
+    signals.push({ type: match.type, contribution: round(contribution) });
 
     // İsim yoksa ID kullanıcıya gösterilmez — reason atlanır, skor yine
     // uygulanır (bkz. görev talimatı).
@@ -453,6 +509,7 @@ function getInferredContribution(
   return {
     contribution: Math.min(total, RECOMMENDATION_WEIGHTS.inferredMax),
     reasons,
+    signals,
   };
 }
 
@@ -461,18 +518,22 @@ function getEraContribution(
   releaseDate: string,
   eraPreferences: TasteProfile["eraPreferences"],
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   const year = releaseDate ? Number(releaseDate.slice(0, 4)) : NaN;
 
   if (!Number.isInteger(year) || year <= 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const decadeLabel = `${Math.floor(year / 10) * 10}s`;
   const match = eraPreferences.find((era) => era.id === decadeLabel);
 
   if (!match || match.score === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const maxAbsScore = Math.max(
@@ -493,22 +554,29 @@ function getEraContribution(
         ]
       : [];
 
-  return { contribution, reasons };
+  const signals: PersonalSignal[] =
+    contribution !== 0 ? [{ type: "era", contribution: round(contribution) }] : [];
+
+  return { contribution, reasons, signals };
 }
 
 function getLanguageContribution(
   originalLanguage: string,
   languagePreferences: TasteProfile["languagePreferences"],
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   if (!originalLanguage) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const match = languagePreferences.find((lang) => lang.id === originalLanguage);
 
   if (!match || match.score === 0) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const maxAbsScore = Math.max(
@@ -531,18 +599,27 @@ function getLanguageContribution(
         ]
       : [];
 
-  return { contribution, reasons };
+  const signals: PersonalSignal[] =
+    contribution !== 0
+      ? [{ type: "language", contribution: round(contribution) }]
+      : [];
+
+  return { contribution, reasons, signals };
 }
 
 function getRuntimeContribution(
   runtime: number | null,
   runtimePreference: TasteProfile["runtimePreference"],
   confidenceMultiplier: number
-): { contribution: number; reasons: RecommendationReason[] } {
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  signals: PersonalSignal[];
+} {
   const { preferredMin, preferredMax } = runtimePreference;
 
   if (runtime === null || preferredMin === null) {
-    return { contribution: 0, reasons: [] };
+    return { contribution: 0, reasons: [], signals: [] };
   }
 
   const inRange =
@@ -560,6 +637,7 @@ function getRuntimeContribution(
           contribution: round(contribution),
         },
       ],
+      signals: [{ type: "runtime", contribution: round(contribution) }],
     };
   }
 
@@ -569,13 +647,16 @@ function getRuntimeContribution(
       : Math.max(0, preferredMin - runtime);
 
   if (distance > FAR_RUNTIME_DISTANCE_MINUTES) {
+    const contribution = -FAR_RUNTIME_PENALTY * confidenceMultiplier;
+
     return {
-      contribution: -FAR_RUNTIME_PENALTY * confidenceMultiplier,
+      contribution,
       reasons: [],
+      signals: [{ type: "runtime", contribution: round(contribution) }],
     };
   }
 
-  return { contribution: 0, reasons: [] };
+  return { contribution: 0, reasons: [], signals: [] };
 }
 
 // ─── Kalite/discovery dengesi ────────────────────────────────────────────
@@ -689,6 +770,11 @@ function scoreCandidate(
     movie.popularity
   );
 
+  // Skor/sıralama, önceki davranışla birebir aynı kalsın diye ham
+  // (yuvarlanmamış) katkıların toplamından hesaplanır — breakdown alanları
+  // (aşağıda) her biri ayrı yuvarlanır, bu yüzden ondalık düzeyde küçük bir
+  // fark olabilir ama sıralamayı etkilemez (bkz. görev talimatı: "Score
+  // sıralaması değişmemeli").
   const score = round(
     genre.contribution +
       dna.contribution +
@@ -713,7 +799,50 @@ function scoreCandidate(
     .filter((reason) => reason.contribution > 0)
     .sort((a, b) => b.contribution - a.contribution);
 
-  return { movie, score, reasons };
+  const breakdown: RecommendationScoreBreakdown = {
+    genre: round(genre.contribution),
+    dna: round(dna.contribution),
+    explicit: round(explicit.contribution),
+    inferred: round(inferred.contribution),
+    context: round(era.contribution + language.contribution + runtime.contribution),
+    quality: round(quality.contribution),
+  };
+
+  // CiNeA Match'in kanıt sayımı UI'daki (en fazla 2) reason listesine değil,
+  // her kategorinin TÜM ham sinyallerine bakar (bkz. görev talimatı bölüm 5).
+  const personalSignals: PersonalSignal[] = [
+    ...genre.signals,
+    ...dna.signals,
+    ...explicit.signals,
+    ...inferred.signals,
+    ...era.signals,
+    ...language.signals,
+    ...runtime.signals,
+  ];
+
+  const positivePersonalSignalCount = personalSignals.filter(
+    (signal) => signal.contribution > 0
+  ).length;
+  const negativePersonalSignalCount = personalSignals.filter(
+    (signal) => signal.contribution < 0
+  ).length;
+  const uniquePersonalReasonTypes = new Set(
+    personalSignals
+      .filter((signal) => signal.contribution > 0)
+      .map((signal) => signal.type)
+  ).size;
+  const hasExplicitMatch = explicit.contribution > 0;
+
+  const match = calculateCineaMatch({
+    breakdown,
+    profileConfidence: tasteProfile.confidence,
+    positivePersonalSignalCount,
+    negativePersonalSignalCount,
+    uniquePersonalReasonTypes,
+    hasExplicitMatch,
+  });
+
+  return { movie, score, reasons, breakdown, match };
 }
 
 // ─── Sıralama + tie-break ────────────────────────────────────────────────
@@ -745,42 +874,56 @@ function compareRecommendationCandidate(
 // uğruna çok daha düşük skorlu bir filmi öne çıkarmamak için. Franchise
 // tahmini (başlıktan sequel tespiti vb.) KASITLI OLARAK yapılmaz — güvenilir
 // veri yok.
-function applyDiversitySelection(
-  sorted: RecommendationCandidate[],
-  windowSize: number
-): RecommendationCandidate[] {
-  const selected: RecommendationCandidate[] = [];
+// Accessor'lar sayesinde bu fonksiyon RecommendationCandidate'a kilitli
+// kalmaz — What to Watch kişiselleştirmesi gibi farklı bir aday tipi de
+// (bkz. lib/whatToWatchPersonalization.ts) aynı, test edilmiş algoritmayı
+// kırılgan bir alan-adı varsayımına dayanmadan yeniden kullanabilir.
+export type DiversitySelectionAccessors<T> = {
+  getId: (item: T) => number;
+  getScore: (item: T) => number;
+  getDirectorIds: (item: T) => number[];
+  getCompanyIds: (item: T) => number[];
+};
+
+export function applyDiversitySelection<T>(
+  sorted: T[],
+  windowSize: number,
+  accessors: DiversitySelectionAccessors<T>
+): T[] {
+  const { getId, getScore, getDirectorIds, getCompanyIds } = accessors;
+
+  const selected: T[] = [];
   const selectedIds = new Set<number>();
   const directorCounts = new Map<number, number>();
   const companyCounts = new Map<number, number>();
 
-  function violatesDiversity(candidate: RecommendationCandidate): boolean {
-    const directorOverLimit = candidate.movie.directorIds.some(
+  function violatesDiversity(candidate: T): boolean {
+    const directorOverLimit = getDirectorIds(candidate).some(
       (id) => (directorCounts.get(id) ?? 0) >= MAX_PER_DIRECTOR_IN_WINDOW
     );
-    const companyOverLimit = candidate.movie.companyIds.some(
+    const companyOverLimit = getCompanyIds(candidate).some(
       (id) => (companyCounts.get(id) ?? 0) >= MAX_PER_COMPANY_IN_WINDOW
     );
 
     return directorOverLimit || companyOverLimit;
   }
 
-  function commit(candidate: RecommendationCandidate) {
+  function commit(candidate: T) {
     selected.push(candidate);
-    selectedIds.add(candidate.movie.id);
+    selectedIds.add(getId(candidate));
 
-    for (const id of candidate.movie.directorIds) {
+    for (const id of getDirectorIds(candidate)) {
       directorCounts.set(id, (directorCounts.get(id) ?? 0) + 1);
     }
 
-    for (const id of candidate.movie.companyIds) {
+    for (const id of getCompanyIds(candidate)) {
       companyCounts.set(id, (companyCounts.get(id) ?? 0) + 1);
     }
   }
 
   function minSelectedScore(): number {
     return selected.length > 0
-      ? Math.min(...selected.map((c) => c.score))
+      ? Math.min(...selected.map((c) => getScore(c)))
       : Number.NEGATIVE_INFINITY;
   }
 
@@ -803,11 +946,11 @@ function applyDiversitySelection(
         break;
       }
 
-      if (selectedIds.has(candidate.movie.id)) {
+      if (selectedIds.has(getId(candidate))) {
         continue;
       }
 
-      if (candidate.score - minSelectedScore() > DIVERSITY_SCORE_GUARD) {
+      if (getScore(candidate) - minSelectedScore() > DIVERSITY_SCORE_GUARD) {
         commit(candidate);
       }
     }
@@ -822,16 +965,23 @@ function applyDiversitySelection(
         break;
       }
 
-      if (!selectedIds.has(candidate.movie.id)) {
+      if (!selectedIds.has(getId(candidate))) {
         commit(candidate);
       }
     }
   }
 
-  const remaining = sorted.filter((c) => !selectedIds.has(c.movie.id));
+  const remaining = sorted.filter((c) => !selectedIds.has(getId(c)));
 
   return [...selected, ...remaining];
 }
+
+const recommendationDiversityAccessors: DiversitySelectionAccessors<RecommendationCandidate> = {
+  getId: (candidate) => candidate.movie.id,
+  getScore: (candidate) => candidate.score,
+  getDirectorIds: (candidate) => candidate.movie.directorIds,
+  getCompanyIds: (candidate) => candidate.movie.companyIds,
+};
 
 // ─── Ana giriş noktası ───────────────────────────────────────────────────
 /**
@@ -862,5 +1012,9 @@ export function rankRecommendationCandidates(
 
   scored.sort(compareRecommendationCandidate);
 
-  return applyDiversitySelection(scored, DIVERSITY_WINDOW);
+  return applyDiversitySelection(
+    scored,
+    DIVERSITY_WINDOW,
+    recommendationDiversityAccessors
+  );
 }

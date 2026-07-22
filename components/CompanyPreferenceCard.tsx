@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 import { getCompanyLogoUrl } from "@/lib/tmdb";
 import {
   useFavoriteCompanies,
@@ -15,8 +17,6 @@ type CompanyPreferenceCardProps = {
   originCountry: string | null;
 };
 
-const LIMIT_MESSAGE = "En fazla 30 favori stüdyo ekleyebilirsin.";
-
 export default function CompanyPreferenceCard({
   id,
   name,
@@ -25,10 +25,17 @@ export default function CompanyPreferenceCard({
 }: CompanyPreferenceCardProps) {
   const { isFavoriteCompany, toggleFavoriteCompany, isLoaded } =
     useFavoriteCompanies();
+  const { settings } = useSettings();
+  const language = settings.language;
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
   const logoUrl = getCompanyLogoUrl(logoPath);
   const isFavorite = isLoaded && isFavoriteCompany(id);
+  const actionLabel = t(
+    language,
+    "personActions",
+    isFavorite ? "removeStudio" : "addStudio"
+  );
 
   function handleToggle() {
     const company: FavoriteCompany = {
@@ -39,11 +46,15 @@ export default function CompanyPreferenceCard({
     };
     const result = toggleFavoriteCompany(company);
 
-    setLimitMessage(result === "limit-reached" ? LIMIT_MESSAGE : null);
+    setLimitMessage(
+      result === "limit-reached"
+        ? t(language, "personActions", "studioLimitMessage")
+        : null
+    );
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-5 text-center">
       <div className="flex h-20 w-full items-center justify-center overflow-hidden rounded-lg bg-white/5">
         {logoUrl ? (
           <Image
@@ -54,17 +65,19 @@ export default function CompanyPreferenceCard({
             className="max-h-16 w-auto object-contain"
           />
         ) : (
-          <span className="text-xs text-neutral-500">Logo yok</span>
+          <span className="text-xs text-muted">
+            {t(language, "personActions", "noLogo")}
+          </span>
         )}
       </div>
 
       <div className="min-w-0 w-full">
-        <h3 className="truncate font-semibold text-white" title={name}>
+        <h3 className="truncate font-semibold text-foreground" title={name}>
           {name}
         </h3>
 
         {originCountry && (
-          <p className="mt-1 text-xs text-neutral-500">{originCountry}</p>
+          <p className="mt-1 text-xs text-muted">{originCountry}</p>
         )}
       </div>
 
@@ -74,14 +87,14 @@ export default function CompanyPreferenceCard({
         disabled={!isLoaded}
         className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
           isFavorite
-            ? "border border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
-            : "bg-yellow-400 text-black hover:bg-yellow-300"
+            ? "border border-accent text-accent hover:bg-accent/10"
+            : "bg-accent text-accent-foreground hover:bg-accent-hover"
         }`}
       >
-        {isFavorite ? "Favori Stüdyo · Çıkar" : "Favori Stüdyo Ekle"}
+        {actionLabel}
       </button>
 
-      {limitMessage && <p className="text-xs text-red-400">{limitMessage}</p>}
+      {limitMessage && <p className="text-xs text-danger">{limitMessage}</p>}
     </div>
   );
 }

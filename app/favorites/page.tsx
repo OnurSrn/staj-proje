@@ -1,29 +1,30 @@
 import SavedMoviesGrid from "@/components/SavedMoviesGrid";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 
 export const metadata = {
   title: "Favorites",
 };
 
-export default function FavoritesPage() {
+export default async function FavoritesPage() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          Your Collection
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "favorites", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Favorites</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "favorites", "title")}
+        </h1>
 
-        <p className="mt-4 text-neutral-400">
-          Favori olarak kaydettiğin filmler burada görüntülenir.
+        <p className="mt-4 text-muted">
+          {t(language, "favorites", "subtitle")}
         </p>
 
-        <SavedMoviesGrid
-            storageKey="cinescope-favorites"
-            emptyTitle="Henüz favori film yok"
-            emptyDescription="Film detay sayfasından favorilerine film ekleyebilirsin."
-            removeButtonText="Favorilerden Çıkar"
-        />
+        <SavedMoviesGrid kind="favorites" />
       </section>
     </main>
   );

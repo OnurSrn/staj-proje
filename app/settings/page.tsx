@@ -1,33 +1,33 @@
 import type { Metadata } from "next";
-import ProfileDashboard from "@/components/ProfileDashboard";
+import SettingsDashboard from "@/components/SettingsDashboard";
 import { t } from "@/lib/i18n";
 import { getServerLanguage } from "@/lib/serverLanguage";
 
 export const metadata: Metadata = {
-  title: "Profile",
+  title: "Ayarlar",
   description:
-    "Film zevkini ve kişisel puanlama istatistiklerini özetleyen profil sayfan.",
+    "Dil, görünüm ve bölge tercihlerinin yönetildiği sayfa.",
 };
 
-export default async function ProfilePage() {
+export default async function SettingsPage() {
   const language = await getServerLanguage();
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
         <p className="text-sm font-semibold uppercase tracking-widest text-accent">
-          {t(language, "profile", "eyebrow")}
+          {t(language, "settings", "title")}
         </p>
 
         <h1 className="mt-4 text-4xl font-bold">
-          {t(language, "profile", "title")}
+          {t(language, "settings", "title")}
         </h1>
 
         <p className="mt-4 text-muted">
-          {t(language, "profile", "subtitle")}
+          {t(language, "settings", "description")}
         </p>
 
-        <ProfileDashboard />
+        <SettingsDashboard />
       </section>
     </main>
   );

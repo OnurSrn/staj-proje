@@ -1,6 +1,109 @@
 @import "tailwindcss";
 
+/* Tailwind v4: bu değişkenleri utility üretecek "renk" olarak kaydeder
+   (bg-background, text-foreground, border-border, bg-accent, ...).
+   `inline` sayesinde değerler build-time'da sabitlenmez, aşağıdaki
+   [data-theme] seçicilerine göre runtime'da değişir. */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* Varsayılan (dark) — mevcut hardcoded neutral-950/900/800 + yellow-400
+   görünümünü olduğu gibi korur. app/layout.tsx <html> öğesi
+   data-theme="dark" ile render edilir; inline tema script'i gerektiğinde
+   ilk paint öncesi "light"e çevirir.
+   --muted-foreground, v1'deki --muted (metin rengi) ile bilinçli olarak
+   AYNI değeri taşır — v1'de zaten "muted metin" anlamıyla onlarca yerde
+   kullanılan --muted'in anlamını bu görevde değiştirip geriye dönük
+   kırmak yerine, yeni --muted-foreground token'ı eklenip ikisi eşitlendi. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --surface: #171717;
+  --surface-elevated: #262626;
+  --surface-subtle: #0f0f0f;
+  --foreground: #fafafa;
+  --muted: #a3a3a3;
+  --muted-foreground: #a3a3a3;
+  --border: #262626;
+  --border-strong: #404040;
+  --accent: #facc15;
+  --accent-hover: #fde047;
+  --accent-foreground: #0a0a0a;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --input: #0a0a0a;
+  --ring: var(--accent);
+}
+
+/* Light — saf beyaz zorunlu değil ama kontrastlı; sarı accent bir ton
+   koyulaştırılarak (amber-700) beyaz zemin üzerinde okunabilir tutuldu
+   (bkz. görev talimatı bölüm 9 "sarı metin açık fonda okunabilir").
+   accent-hover koyu temada bir ton açılır, açık temada bir ton koyulaşır —
+   her iki yönde de "hover = daha vurgulu" hissi tutarlı kalır. */
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --surface: #f5f5f5;
+  --surface-elevated: #e5e5e5;
+  --surface-subtle: #fafafa;
+  --foreground: #171717;
+  --muted: #52525b;
+  --muted-foreground: #52525b;
+  --border: #d4d4d4;
+  --border-strong: #a3a3a3;
+  --accent: #a16207;
+  --accent-hover: #92400e;
+  --accent-foreground: #ffffff;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --input: #ffffff;
+  --ring: var(--accent);
+}
+
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Native <select>/<option> — tarayıcının açtığı popup içeriği
+   Tailwind class'larından değil, buradaki color-scheme + explicit
+   background-color/color'dan renk alır (Chrome/Edge açık option
+   listesini aksi halde OS varsayılanıyla beyaz zeminde çizer). */
+select {
+  background-color: var(--input);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+select option {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+select option:checked {
+  background-color: var(--surface-elevated);
+  color: var(--foreground);
+}
+
+select:disabled,
+select option:disabled {
+  color: var(--muted-foreground);
 }

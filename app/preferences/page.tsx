@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import CompanyPreferenceCard from "@/components/CompanyPreferenceCard";
 import PersonPreferenceCard from "@/components/PersonPreferenceCard";
 import PreferencesDashboard from "@/components/PreferencesDashboard";
+import { buildNoResultsForMessage, t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 import {
   searchCompanies,
   searchPeople,
@@ -58,11 +60,13 @@ export default async function PreferencesPage({
   const trimmedDirectorQuery = directorQuery.trim();
   const trimmedCompanyQuery = companyQuery.trim();
 
-  const [actorResults, directorResults, companyResults] = await Promise.all([
-    trimmedActorQuery ? searchPeople(trimmedActorQuery) : null,
-    trimmedDirectorQuery ? searchPeople(trimmedDirectorQuery) : null,
-    trimmedCompanyQuery ? searchCompanies(trimmedCompanyQuery) : null,
-  ]);
+  const [actorResults, directorResults, companyResults, language] =
+    await Promise.all([
+      trimmedActorQuery ? searchPeople(trimmedActorQuery) : null,
+      trimmedDirectorQuery ? searchPeople(trimmedDirectorQuery) : null,
+      trimmedCompanyQuery ? searchCompanies(trimmedCompanyQuery) : null,
+      getServerLanguage(),
+    ]);
 
   const actors = actorResults
     ? sortByDepartment(actorResults.results, "Acting")
@@ -73,23 +77,25 @@ export default async function PreferencesPage({
   const companies = companyResults?.results ?? [];
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          Tercihler
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "preferences", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Preferences</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "preferences", "title")}
+        </h1>
 
-        <p className="mt-4 max-w-2xl text-neutral-400">
-          Favori oyuncularını, yönetmenlerini ve yapım şirketlerini burada
-          seç. Bu tercihler şimdilik yalnızca bu cihazda saklanır; henüz
-          kişisel öneri veya CiNeA Match hesaplamasında kullanılmıyor.
+        <p className="mt-4 max-w-2xl text-muted">
+          {t(language, "preferences", "subtitle")}
         </p>
 
         {/* 1. Favori Oyuncular */}
         <section className="mt-14">
-          <h2 className="text-2xl font-bold">1. Favori Oyuncular</h2>
+          <h2 className="text-2xl font-bold">
+            {t(language, "preferences", "section1Heading")}
+          </h2>
 
           <form
             action="/preferences"
@@ -100,7 +106,7 @@ export default async function PreferencesPage({
             <input type="hidden" name="companyQuery" value={companyQuery} />
 
             <label htmlFor="actorQuery" className="sr-only">
-              Oyuncu ara
+              {t(language, "preferences", "actorSearchLabel")}
             </label>
 
             <input
@@ -108,25 +114,25 @@ export default async function PreferencesPage({
               type="text"
               name="actorQuery"
               defaultValue={actorQuery}
-              placeholder="Örneğin: Leonardo DiCaprio"
-              className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-3 text-white outline-none transition placeholder:text-neutral-500 focus:border-yellow-400"
+              placeholder={`${t(language, "common", "examplePrefix")} Leonardo DiCaprio`}
+              className="min-w-0 flex-1 rounded-xl border border-border bg-input px-5 py-3 text-foreground outline-none transition placeholder:text-muted focus:border-accent"
             />
 
             <button
               type="submit"
-              className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Ara
+              {t(language, "preferences", "searchButton")}
             </button>
           </form>
 
           {!trimmedActorQuery ? (
-            <p className="mt-6 text-neutral-500">
-              Bir oyuncu adı aramaya başla.
+            <p className="mt-6 text-muted">
+              {t(language, "preferences", "actorPromptEmpty")}
             </p>
           ) : actors.length === 0 ? (
-            <p className="mt-6 text-neutral-500">
-              “{trimmedActorQuery}” için sonuç bulunamadı.
+            <p className="mt-6 text-muted">
+              {buildNoResultsForMessage(language, trimmedActorQuery)}
             </p>
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -147,7 +153,9 @@ export default async function PreferencesPage({
 
         {/* 2. Favori Yönetmenler */}
         <section className="mt-14">
-          <h2 className="text-2xl font-bold">2. Favori Yönetmenler</h2>
+          <h2 className="text-2xl font-bold">
+            {t(language, "preferences", "section2Heading")}
+          </h2>
 
           <form
             action="/preferences"
@@ -158,7 +166,7 @@ export default async function PreferencesPage({
             <input type="hidden" name="companyQuery" value={companyQuery} />
 
             <label htmlFor="directorQuery" className="sr-only">
-              Yönetmen ara
+              {t(language, "preferences", "directorSearchLabel")}
             </label>
 
             <input
@@ -166,31 +174,29 @@ export default async function PreferencesPage({
               type="text"
               name="directorQuery"
               defaultValue={directorQuery}
-              placeholder="Örneğin: Christopher Nolan"
-              className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-3 text-white outline-none transition placeholder:text-neutral-500 focus:border-yellow-400"
+              placeholder={`${t(language, "common", "examplePrefix")} Christopher Nolan`}
+              className="min-w-0 flex-1 rounded-xl border border-border bg-input px-5 py-3 text-foreground outline-none transition placeholder:text-muted focus:border-accent"
             />
 
             <button
               type="submit"
-              className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Ara
+              {t(language, "preferences", "searchButton")}
             </button>
           </form>
 
-          <p className="mt-3 text-xs text-neutral-500">
-            TMDB kişi araması rolü kesin göstermeyebilir; sonuçlar
-            &quot;Directing&quot; departmanına göre önceliklendirilir ama
-            nihai kararı departman etiketine bakarak sen verirsin.
+          <p className="mt-3 text-xs text-muted">
+            {t(language, "preferences", "directorNote")}
           </p>
 
           {!trimmedDirectorQuery ? (
-            <p className="mt-6 text-neutral-500">
-              Bir yönetmen adı aramaya başla.
+            <p className="mt-6 text-muted">
+              {t(language, "preferences", "directorPromptEmpty")}
             </p>
           ) : directors.length === 0 ? (
-            <p className="mt-6 text-neutral-500">
-              “{trimmedDirectorQuery}” için sonuç bulunamadı.
+            <p className="mt-6 text-muted">
+              {buildNoResultsForMessage(language, trimmedDirectorQuery)}
             </p>
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -211,7 +217,9 @@ export default async function PreferencesPage({
 
         {/* 3. Favori Stüdyolar */}
         <section className="mt-14">
-          <h2 className="text-2xl font-bold">3. Favori Stüdyolar</h2>
+          <h2 className="text-2xl font-bold">
+            {t(language, "preferences", "section3Heading")}
+          </h2>
 
           <form
             action="/preferences"
@@ -222,7 +230,7 @@ export default async function PreferencesPage({
             <input type="hidden" name="directorQuery" value={directorQuery} />
 
             <label htmlFor="companyQuery" className="sr-only">
-              Stüdyo ara
+              {t(language, "preferences", "companySearchLabel")}
             </label>
 
             <input
@@ -230,25 +238,25 @@ export default async function PreferencesPage({
               type="text"
               name="companyQuery"
               defaultValue={companyQuery}
-              placeholder="Örneğin: A24"
-              className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-3 text-white outline-none transition placeholder:text-neutral-500 focus:border-yellow-400"
+              placeholder={`${t(language, "common", "examplePrefix")} A24`}
+              className="min-w-0 flex-1 rounded-xl border border-border bg-input px-5 py-3 text-foreground outline-none transition placeholder:text-muted focus:border-accent"
             />
 
             <button
               type="submit"
-              className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Ara
+              {t(language, "preferences", "searchButton")}
             </button>
           </form>
 
           {!trimmedCompanyQuery ? (
-            <p className="mt-6 text-neutral-500">
-              Bir yapım şirketi aramaya başla.
+            <p className="mt-6 text-muted">
+              {t(language, "preferences", "companyPromptEmpty")}
             </p>
           ) : companies.length === 0 ? (
-            <p className="mt-6 text-neutral-500">
-              “{trimmedCompanyQuery}” için sonuç bulunamadı.
+            <p className="mt-6 text-muted">
+              {buildNoResultsForMessage(language, trimmedCompanyQuery)}
             </p>
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
@@ -266,8 +274,10 @@ export default async function PreferencesPage({
         </section>
 
         {/* Mevcut favoriler */}
-        <section className="mt-16 border-t border-neutral-800 pt-10">
-          <h2 className="text-2xl font-bold">Mevcut Favorilerin</h2>
+        <section className="mt-16 border-t border-border pt-10">
+          <h2 className="text-2xl font-bold">
+            {t(language, "preferences", "existingFavoritesHeading")}
+          </h2>
 
           <PreferencesDashboard />
         </section>

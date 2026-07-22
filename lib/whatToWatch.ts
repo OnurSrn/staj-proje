@@ -1,53 +1,13 @@
-import type {
-  Company,
-  Discovery,
-  Intensity,
-  Mood,
-  RuntimePreference,
-} from "@/lib/tmdb";
-
-type SelectOption<T extends string> = {
-  value: T;
-  label: string;
-};
-
-export const MOOD_OPTIONS: SelectOption<Mood>[] = [
-  { value: "fun", label: "Eğlenceli" },
-  { value: "exciting", label: "Heyecanlı" },
-  { value: "emotional", label: "Duygusal" },
-  { value: "dark", label: "Karanlık" },
-  { value: "cozy", label: "Rahat" },
-  { value: "thoughtful", label: "Düşündürücü" },
-];
-
-export const RUNTIME_OPTIONS: SelectOption<RuntimePreference>[] = [
-  { value: "short", label: "90 dakikadan kısa" },
-  { value: "medium", label: "90-120 dakika" },
-  { value: "long", label: "120 dakikadan uzun" },
-  { value: "any", label: "Fark etmez" },
-];
-
-export const INTENSITY_OPTIONS: SelectOption<Intensity>[] = [
-  { value: "light", label: "Hafif" },
-  { value: "balanced", label: "Dengeli" },
-  { value: "intense", label: "Yoğun" },
-];
-
-export const COMPANY_OPTIONS: SelectOption<Company>[] = [
-  { value: "alone", label: "Tek başıma" },
-  { value: "friends", label: "Arkadaşlarla" },
-  { value: "family", label: "Aileyle" },
-  { value: "partner", label: "Partnerle" },
-];
-
-export const DISCOVERY_OPTIONS: SelectOption<Discovery>[] = [
-  { value: "safe", label: "Güvenli seçim" },
-  { value: "balanced", label: "Dengeli" },
-  { value: "different", label: "Farklı bir şey" },
-];
+import type { Company, Mood, RuntimePreference } from "@/lib/tmdb";
+import {
+  getCompanyOptions,
+  getMoodOptions,
+  getRuntimeOptions,
+} from "@/lib/i18n";
+import type { AppLanguage } from "@/lib/settings";
 
 function findLabel<T extends string>(
-  options: SelectOption<T>[],
+  options: { value: T; label: string }[],
   value: T
 ): string {
   return options.find((option) => option.value === value)?.label ?? "";
@@ -60,20 +20,34 @@ export type WhatToWatchDescriptionInput = {
   genreName: string | null;
 };
 
+// Dil desteği: seçim etiketleri lib/i18n.ts'teki çeviri kaynağından gelir
+// (WhatToWatchForm de aynı getMoodOptions/getRuntimeOptions/... helper'larını
+// kullanır — etiketler tek yerde tanımlanır, kopyalanmaz). Cümle yapısı
+// TR/EN için ayrı kuruluyor çünkü kelime sırası ve edatlar dile göre
+// değişiyor; sade bir string birleştirmeyle doğal bir cümle üretmek
+// mümkün değil.
 export function buildWhatToWatchDescription(
+  language: AppLanguage,
   input: WhatToWatchDescriptionInput
 ): string {
-  const moodLabel = findLabel(MOOD_OPTIONS, input.mood);
-  const runtimeLabel = findLabel(RUNTIME_OPTIONS, input.runtime);
-  const companyLabel = findLabel(COMPANY_OPTIONS, input.company);
+  const moodLabel = findLabel(getMoodOptions(language), input.mood);
+  const runtimeLabel = findLabel(getRuntimeOptions(language), input.runtime);
+  const companyLabel = findLabel(getCompanyOptions(language), input.company);
 
-  const parts = [moodLabel];
+  if (language === "tr") {
+    const parts = [moodLabel];
 
-  if (input.runtime !== "any") {
-    parts.push(runtimeLabel);
+    if (input.runtime !== "any") {
+      parts.push(runtimeLabel);
+    }
+
+    const genreSuffix = input.genreName ? `, ${input.genreName} türünde` : "";
+
+    return `${parts.join(", ")} ve ${companyLabel.toLowerCase()} izlemeye uygun${genreSuffix} filmler seçtik.`;
   }
 
-  const genreSuffix = input.genreName ? `, ${input.genreName} türünde` : "";
+  const runtimeSuffix = input.runtime !== "any" ? `, ${runtimeLabel.toLowerCase()}` : "";
+  const genreInfix = input.genreName ? `${input.genreName} ` : "";
 
-  return `${parts.join(", ")} ve ${companyLabel.toLowerCase()} izlemeye uygun${genreSuffix} filmler seçtik.`;
+  return `We picked ${genreInfix}${moodLabel.toLowerCase()}${runtimeSuffix} movies, perfect for watching ${companyLabel.toLowerCase()}.`;
 }

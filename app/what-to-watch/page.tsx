@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import WhatToWatchForm from "@/components/WhatToWatchForm";
 import WhatToWatchResults from "@/components/WhatToWatchResults";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 import {
   getMovieGenres,
   getWhatToWatchRecommendations,
@@ -62,6 +64,13 @@ const DEFAULT_INTENSITY: Intensity = "balanced";
 const DEFAULT_COMPANY: Company = "alone";
 const DEFAULT_DISCOVERY: Discovery = "balanced";
 
+// Kişiselleştirme (client-side rerank) için mevcut 12'lik gösterim
+// sınırından daha geniş bir aday havuzu istemcinin eline verilir — TMDB
+// discover uç noktası zaten sayfa başına 20 sonuç döndürdüğü için bu ek bir
+// istek OLUŞTURMAZ, yalnızca zaten gelen sonuçların ne kadarının client'a
+// taşındığını belirler (bkz. görev talimatı bölüm 11/15).
+const WHAT_TO_WATCH_CANDIDATE_POOL_LIMIT = 20;
+
 function isMood(value: string): value is Mood {
   return ALLOWED_MOODS.includes(value as Mood);
 }
@@ -96,7 +105,10 @@ export default async function WhatToWatchPage({
   searchParams,
 }: WhatToWatchPageProps) {
   const params = await searchParams;
-  const genres = await getMovieGenres();
+  const [genres, language] = await Promise.all([
+    getMovieGenres(),
+    getServerLanguage(),
+  ]);
 
   const hasSubmitted = params.mood !== undefined && isMood(params.mood);
 
@@ -151,27 +163,28 @@ export default async function WhatToWatchPage({
       seenIds.add(movie.id);
       return true;
     })
-    .slice(0, 12);
+    .slice(0, WHAT_TO_WATCH_CANDIDATE_POOL_LIMIT);
 
   const genreName =
     genreId > 0 ? genres.find((genre) => genre.id === genreId)?.name ?? null : null;
 
   const description = hasSubmitted
-    ? buildWhatToWatchDescription({ mood, runtime, company, genreName })
+    ? buildWhatToWatchDescription(language, { mood, runtime, company, genreName })
     : "";
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          Bu Akşam Ne İzlesem?
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "whatToWatch", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">What to Watch</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "whatToWatch", "title")}
+        </h1>
 
-        <p className="mt-4 text-neutral-400">
-          Ruh haline, vaktine ve kiminle izleyeceğine göre sana film
-          önerelim.
+        <p className="mt-4 text-muted">
+          {t(language, "whatToWatch", "subtitle")}
         </p>
 
         <div className="mt-8">
@@ -187,19 +200,28 @@ export default async function WhatToWatchPage({
         </div>
 
         {!hasSubmitted && (
-          <div className="mt-12 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+          <div className="mt-12 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
             <h2 className="text-xl font-semibold">
-              Tercihlerini seç, sana film önerelim
+              {t(language, "whatToWatch", "promptTitle")}
             </h2>
 
-            <p className="mt-3 text-neutral-400">
-              Yukarıdaki formu doldurup &quot;Film Öner&quot; butonuna bas.
+            <p className="mt-3 text-muted">
+              {t(language, "whatToWatch", "promptDescription")}
             </p>
           </div>
         )}
 
         {hasSubmitted && (
-          <WhatToWatchResults movies={results} description={description} />
+          <WhatToWatchResults
+            movies={results}
+            description={description}
+            selectedMood={mood}
+            selectedGenreId={genreId > 0 ? genreId : null}
+            selectedRuntime={runtime}
+            selectedIntensity={intensity}
+            selectedCompany={company}
+            selectedDiscovery={discovery}
+          />
         )}
       </section>
     </main>

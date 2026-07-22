@@ -148,7 +148,7 @@ export function buildRecommendationFilters(
   };
 }
 
-function toRecommendationMovie(movie: MovieDetails): RecommendationMovie {
+export function toRecommendationMovie(movie: MovieDetails): RecommendationMovie {
   const genreIds = movie.genres.map((genre) => genre.id);
   const keywordIds = (movie.keywords?.keywords ?? []).map((keyword) => keyword.id);
   const castIds = movie.credits.cast.slice(0, 10).map((member) => member.id);
@@ -290,7 +290,7 @@ export function useRecommendations(): UseRecommendationsResult {
     movies,
     isLoading: moviesLoading,
     hasError: moviesHasError,
-  } = useMoviesByIds(detailFetchIds);
+  } = useMoviesByIds(detailFetchIds, { mode: "dna" });
 
   const recommendations = useMemo(() => {
     if (!tasteProfile || candidateIds === null || moviesLoading) {

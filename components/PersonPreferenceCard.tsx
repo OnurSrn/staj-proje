@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 import { getProfileUrl } from "@/lib/tmdb";
 import {
   useFavoritePeople,
@@ -19,16 +21,6 @@ type PersonPreferenceCardProps = {
   role: FavoritePersonRole;
 };
 
-const ROLE_LABEL: Record<FavoritePersonRole, string> = {
-  actor: "Favori Oyuncu",
-  director: "Favori Yönetmen",
-};
-
-const LIMIT_MESSAGE: Record<FavoritePersonRole, string> = {
-  actor: "En fazla 50 favori oyuncu ekleyebilirsin.",
-  director: "En fazla 30 favori yönetmen ekleyebilirsin.",
-};
-
 export default function PersonPreferenceCard({
   id,
   name,
@@ -39,22 +31,35 @@ export default function PersonPreferenceCard({
 }: PersonPreferenceCardProps) {
   const { isFavoritePerson, toggleFavoritePerson, isLoaded } =
     useFavoritePeople();
+  const { settings } = useSettings();
+  const language = settings.language;
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
   const profileUrl = getProfileUrl(profilePath);
   const isFavorite = isLoaded && isFavoritePerson(id, role);
+  const addKey = role === "actor" ? "addActor" : "addDirector";
+  const removeKey = role === "actor" ? "removeActor" : "removeDirector";
+  const actionLabel = t(
+    language,
+    "personActions",
+    isFavorite ? removeKey : addKey
+  );
+  const limitKey =
+    role === "actor" ? "actorLimitMessage" : "directorLimitMessage";
 
   function handleToggle() {
     const person: FavoritePerson = { id, name, profilePath, role };
     const result = toggleFavoritePerson(person);
 
-    setLimitMessage(result === "limit-reached" ? LIMIT_MESSAGE[role] : null);
+    setLimitMessage(
+      result === "limit-reached" ? t(language, "personActions", limitKey) : null
+    );
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
       <Link href={`/person/${id}`} className="group block">
-        <div className="relative aspect-[2/3] overflow-hidden bg-neutral-800">
+        <div className="relative aspect-[2/3] overflow-hidden bg-surface-elevated">
           {profileUrl ? (
             <Image
               src={profileUrl}
@@ -64,27 +69,28 @@ export default function PersonPreferenceCard({
               className="object-cover transition duration-300 group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full items-center justify-center px-4 text-center text-sm text-neutral-500">
-              Görsel bulunamadı
+            <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
+              {t(language, "common", "noProfileImage")}
             </div>
           )}
         </div>
       </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="truncate font-semibold text-white" title={name}>
+        <h3 className="truncate font-semibold text-foreground" title={name}>
           {name}
         </h3>
 
         {department && (
-          <span className="w-fit rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+          <span className="w-fit rounded-full bg-surface-elevated px-2 py-0.5 text-xs text-muted">
             {department}
           </span>
         )}
 
         {knownForTitles.length > 0 && (
-          <p className="line-clamp-2 text-xs text-neutral-500">
-            Bilinen: {knownForTitles.join(", ")}
+          <p className="line-clamp-2 text-xs text-muted">
+            {t(language, "personActions", "knownForPrefix")}{" "}
+            {knownForTitles.join(", ")}
           </p>
         )}
 
@@ -94,16 +100,14 @@ export default function PersonPreferenceCard({
           disabled={!isLoaded}
           className={`mt-auto rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
             isFavorite
-              ? "border border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
-              : "bg-yellow-400 text-black hover:bg-yellow-300"
+              ? "border border-accent text-accent hover:bg-accent/10"
+              : "bg-accent text-accent-foreground hover:bg-accent-hover"
           }`}
         >
-          {isFavorite
-            ? `${ROLE_LABEL[role]} · Çıkar`
-            : `${ROLE_LABEL[role]} Ekle`}
+          {actionLabel}
         </button>
 
-        {limitMessage && <p className="text-xs text-red-400">{limitMessage}</p>}
+        {limitMessage && <p className="text-xs text-danger">{limitMessage}</p>}
       </div>
     </div>
   );

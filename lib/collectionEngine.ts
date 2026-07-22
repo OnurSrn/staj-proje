@@ -1,8 +1,10 @@
 import type { CineaCollection } from "@/lib/cineaCollections";
 import {
   getCollectionCandidates,
-  getMovieKeywords,
+  getMovieCollectionId,
+  getMovieKeywordsAndCollectionId,
   type CollectionCandidateMovie,
+  type MovieKeywordsAndCollection,
   type TmdbMovie,
 } from "@/lib/tmdb";
 
@@ -10,9 +12,15 @@ import {
 // sayfadan aday topla"). Tüm koleksiyonlarda tutarlılık için sabit tutulur.
 const CANDIDATE_PAGES = 4;
 
-// Anahtar kelime isteklerinin aynı anda kaç tanesinin uçuşacağını sınırlar
-// (spec: "kontrolsüz biçimde yüzlerce paralel istek atma").
+// Anahtar kelime (+ franchise dedup için binen belongs_to_collection.id)
+// isteklerinin aynı anda kaç tanesinin uçuşacağını sınırlar (spec:
+// "kontrolsüz biçimde yüzlerce paralel istek atma").
 const KEYWORD_FETCH_CONCURRENCY = 6;
+
+// Koleksiyon keyword'e ihtiyaç duymadığı (bu yüzden hiç per-movie isteği
+// olmadığı) nadir durumda, olası franchise tekrarlarını doğrulamak için
+// kullanılan ayrı, küçük eşzamanlılık sınırı.
+const COLLECTION_ID_FETCH_CONCURRENCY = 6;
 
 const RESULTS_PER_PAGE = 20;
 
@@ -320,10 +328,15 @@ async function fetchCandidatePool(
   return Array.from(seen.values());
 }
 
-async function fetchKeywordsForMovies(
+// Anahtar kelimeleri ve (aynı istekte binen) belongs_to_collection.id'yi
+// birlikte çeker — bkz. getMovieKeywordsAndCollectionId. Bu, keyword'e
+// ihtiyaç duyan (bugün itibarıyla tüm CiNeA Collections tanımları)
+// koleksiyonlar için franchise dedup'ın TEK istek maliyeti olmasını sağlar;
+// ayrı bir "collection id" isteği fazı gerekmez.
+async function fetchKeywordsAndCollectionIdsForMovies(
   movieIds: number[]
-): Promise<Map<number, number[]>> {
-  const result = new Map<number, number[]>();
+): Promise<Map<number, MovieKeywordsAndCollection>> {
+  const result = new Map<number, MovieKeywordsAndCollection>();
   let cursor = 0;
 
   async function worker() {
@@ -332,13 +345,9 @@ async function fetchKeywordsForMovies(
       cursor += 1;
 
       try {
-        const keywords = await getMovieKeywords(movieId);
-        result.set(
-          movieId,
-          keywords.map((keyword) => keyword.id)
-        );
+        result.set(movieId, await getMovieKeywordsAndCollectionId(movieId));
       } catch {
-        result.set(movieId, []);
+        result.set(movieId, { keywordIds: [], collectionId: null });
       }
     }
   }
@@ -347,6 +356,117 @@ async function fetchKeywordsForMovies(
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return result;
+}
+
+// Yalnızca koleksiyon hiç keyword'e ihtiyaç duymadığında (bu yüzden
+// yukarıdaki birleşik istekle "binecek" bir keyword akışı olmadığında)
+// devreye giren dar kapsamlı yol — çağıran taraf (bkz.
+// resolveCollectionIdsWithoutKeywords) burayı yalnızca başlığa göre olası
+// franchise tekrarı tespit edilen küçük bir alt küme için çağırır, kabul
+// edilen adayların TAMAMI için değil.
+async function fetchCollectionIdsForMovies(
+  movieIds: number[]
+): Promise<Map<number, number | null>> {
+  const result = new Map<number, number | null>();
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < movieIds.length) {
+      const movieId = movieIds[cursor];
+      cursor += 1;
+
+      try {
+        result.set(movieId, await getMovieCollectionId(movieId));
+      } catch {
+        result.set(movieId, null);
+      }
+    }
+  }
+
+  const workerCount = Math.min(
+    COLLECTION_ID_FETCH_CONCURRENCY,
+    movieIds.length
+  );
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return result;
+}
+
+export type FranchiseDiversityCandidate = {
+  id: number;
+  score: number;
+  releaseDate: string;
+  collectionId: number | null;
+};
+
+function parseReleaseTime(releaseDate: string): number {
+  if (!releaseDate) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const parsed = Date.parse(releaseDate);
+
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
+// candidate, currentBest'in yerini almalı mı? Kural sırası (spec):
+// 1) daha yüksek CiNeA collection score'u, 2) eşitlikte daha eski
+// release date, 3) hâlâ eşitlikte daha küçük TMDB movie id.
+function isMoreRepresentative(
+  candidate: FranchiseDiversityCandidate,
+  currentBest: FranchiseDiversityCandidate
+): boolean {
+  if (candidate.score !== currentBest.score) {
+    return candidate.score > currentBest.score;
+  }
+
+  const candidateTime = parseReleaseTime(candidate.releaseDate);
+  const bestTime = parseReleaseTime(currentBest.releaseDate);
+
+  if (candidateTime !== bestTime) {
+    return candidateTime < bestTime;
+  }
+
+  return candidate.id < currentBest.id;
+}
+
+/**
+ * Aynı TMDB `belongs_to_collection.id`'ye (franchise) sahip filmlerden
+ * yalnızca en iyi temsilciyi tutar. `collectionId` yoksa (null) film kendi
+ * başına ayrı bir grup sayılır — standalone spin-off'lar bu sayede ana
+ * seriyle birleştirilmeden ayrıca görünebilir.
+ *
+ * Sıra korunur: her grubun sonuçtaki konumu, o grubun girdi listesinde İLK
+ * karşılaşıldığı pozisyondur (grubun kendisi en yüksek skorlu temsilciyle
+ * doldurulur). Saf bir fonksiyondur — fetch içermez, sırası önceden
+ * skorlanmış/sıralanmış bir liste üzerinde çalışır.
+ */
+export function applyFranchiseDiversity<T extends FranchiseDiversityCandidate>(
+  candidates: T[]
+): T[] {
+  const bestByGroup = new Map<string, T>();
+  const firstIndexByGroup = new Map<string, number>();
+
+  candidates.forEach((candidate, index) => {
+    const key =
+      candidate.collectionId !== null
+        ? `tmdb-collection:${candidate.collectionId}`
+        : `movie:${candidate.id}`;
+
+    if (!firstIndexByGroup.has(key)) {
+      firstIndexByGroup.set(key, index);
+    }
+
+    const currentBest = bestByGroup.get(key);
+
+    if (!currentBest || isMoreRepresentative(candidate, currentBest)) {
+      bestByGroup.set(key, candidate);
+    }
+  });
+
+  return Array.from(firstIndexByGroup.entries())
+    .sort((a, b) => a[1] - b[1])
+    .map(([key]) => bestByGroup.get(key) as T);
 }
 
 /**
@@ -366,19 +486,80 @@ function collectionNeedsKeywords(collection: CineaCollection): boolean {
   );
 }
 
+// "Olası franchise tekrarı" tespiti: başlığı devam-filmi işaretlerinden
+// (": alt başlık", sondaki roma rakamı veya rakam) arındırarak kaba bir
+// gövde çıkarır. TMDB'ye hiç sormadan, yalnızca AYNI gövdeye sahip 2+ aday
+// varsa gerçekten aynı collection'a ait olup olmadıkları doğrulanır — tekil
+// gövdeli filmler hiç sorgulanmadan bağımsız kabul edilir. Bu, "yanlışlıkla
+// farklı filmleri aynı franchise kabul etme" ilkesiyle güvenlidir: gövde
+// eşleşmesi yalnızca kimin DOĞRULANACAĞINI seçer, collectionId'yi asla
+// doğrudan atamaz — gerçek değer her zaman TMDB'den gelir. Gövdesi hiçbir
+// adayla eşleşmeyen bir film en kötü ihtimalle "belirsiz durumda bağımsız
+// bırakılmış" olur (spec), asla yanlış birleştirilmez.
+function normalizeFranchiseTitleStem(title: string): string {
+  return title
+    .toLowerCase()
+    .split(":")[0]
+    .replace(/\b(i{1,3}|iv|vi{0,3}|ix|x)\b\s*$/g, "")
+    .replace(/\b[2-9]\b\s*$/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function resolveCollectionIdsWithoutKeywords(
+  scored: { movie: TmdbMovie; evaluation: CollectionEvaluation }[]
+): Promise<Map<number, number | null>> {
+  const idsByStem = new Map<string, number[]>();
+
+  scored.forEach((entry) => {
+    const stem = normalizeFranchiseTitleStem(entry.movie.title);
+    const ids = idsByStem.get(stem) ?? [];
+    ids.push(entry.movie.id);
+    idsByStem.set(stem, ids);
+  });
+
+  const idsNeedingVerification = Array.from(idsByStem.values())
+    .filter((ids) => ids.length > 1)
+    .flat();
+
+  const verifiedCollectionIds = await fetchCollectionIdsForMovies(
+    idsNeedingVerification
+  );
+
+  const result = new Map<number, number | null>();
+
+  scored.forEach((entry) => {
+    result.set(
+      entry.movie.id,
+      verifiedCollectionIds.get(entry.movie.id) ?? null
+    );
+  });
+
+  return result;
+}
+
 export async function getCineaCollectionPage(
   collection: CineaCollection,
   page: number
 ): Promise<CineaCollectionPageResult> {
   const candidates = await fetchCandidatePool(collection);
+  const needsKeywords = collectionNeedsKeywords(collection);
 
-  const keywordsByMovieId = collectionNeedsKeywords(collection)
-    ? await fetchKeywordsForMovies(candidates.map((movie) => movie.id))
-    : new Map<number, number[]>();
+  // Franchise dedup'ın ihtiyaç duyduğu belongs_to_collection.id, discover
+  // adaylarında yoktur (yalnızca temel /movie/{id} gövdesinde bulunur).
+  // Koleksiyon zaten keyword'e ihtiyaç duyuyorsa (bugün itibarıyla tüm CiNeA
+  // Collections tanımları), collection id AYNI per-movie isteğe biner
+  // (getMovieKeywordsAndCollectionId) — ayrı bir enrichment fazı YOKTUR.
+  const keywordsAndCollectionByMovieId = needsKeywords
+    ? await fetchKeywordsAndCollectionIdsForMovies(
+        candidates.map((movie) => movie.id)
+      )
+    : new Map<number, MovieKeywordsAndCollection>();
 
-  const accepted = candidates
+  const scored = candidates
     .map((movie) => {
-      const keywordIds = keywordsByMovieId.get(movie.id) ?? [];
+      const keywordIds =
+        keywordsAndCollectionByMovieId.get(movie.id)?.keywordIds ?? [];
       const evaluation = evaluateMovieForCollection(
         collection,
         movie,
@@ -395,8 +576,37 @@ export async function getCineaCollectionPage(
       }
 
       return b.movie.vote_average - a.movie.vote_average;
-    })
-    .map((entry) => entry.movie);
+    });
+
+  // Nadir durumda (koleksiyon keyword'e ihtiyaç duymuyorsa) binecek bir
+  // istek olmadığından, olası tekrarlar başlık gövdesiyle önce daraltılır
+  // ve yalnızca o küçük alt küme için doğrulama isteği atılır (bkz.
+  // resolveCollectionIdsWithoutKeywords) — kabul edilen adayların tamamı
+  // için değil.
+  const collectionIdByMovieId = needsKeywords
+    ? new Map(
+        scored.map((entry) => [
+          entry.movie.id,
+          keywordsAndCollectionByMovieId.get(entry.movie.id)?.collectionId ??
+            null,
+        ])
+      )
+    : await resolveCollectionIdsWithoutKeywords(scored);
+
+  // Dedup (bkz. applyFranchiseDiversity), TÜM kabul edilen listede
+  // (sayfalama öncesi) uygulanır — aynı franchise tekrarlarının
+  // kaldırılmasıyla açılan boşluklar, sonraki sayfalardaki farklı franchise
+  // adaylarıyla doğal biçimde dolar; ayrı bir "doldurma" adımına gerek
+  // kalmaz.
+  const accepted = applyFranchiseDiversity(
+    scored.map((entry) => ({
+      id: entry.movie.id,
+      score: entry.evaluation.score,
+      releaseDate: entry.movie.release_date,
+      collectionId: collectionIdByMovieId.get(entry.movie.id) ?? null,
+      movie: entry.movie,
+    }))
+  ).map((entry) => entry.movie);
 
   const totalFilteredCount = accepted.length;
   const totalPages = Math.max(

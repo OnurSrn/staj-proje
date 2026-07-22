@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n";
+import type { AppLanguage } from "@/lib/settings";
 import type {
   MovieGenre,
   MovieSort,
@@ -7,34 +9,42 @@ type MovieFiltersProps = {
   genres: MovieGenre[];
   selectedGenre: number;
   selectedSort: MovieSort;
+  language: AppLanguage;
 };
+
+const SORT_VALUES: MovieSort[] = [
+  "popularity.desc",
+  "vote_average.desc",
+  "primary_release_date.desc",
+];
 
 export default function MovieFilters({
   genres,
   selectedGenre,
   selectedSort,
+  language,
 }: MovieFiltersProps) {
   return (
     <form
       action="/"
       method="GET"
-      className="mb-8 grid gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:grid-cols-[1fr_1fr_auto]"
+      className="mb-8 grid gap-4 rounded-2xl border border-border bg-surface p-5 sm:grid-cols-[1fr_1fr_auto]"
     >
       <div>
         <label
           htmlFor="genre"
-          className="mb-2 block text-sm font-semibold text-neutral-300"
+          className="mb-2 block text-sm font-semibold text-muted"
         >
-          Film Türü
+          {t(language, "whatToWatch", "genreLabel")}
         </label>
 
         <select
           id="genre"
           name="genre"
           defaultValue={selectedGenre.toString()}
-          className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-white outline-none focus:border-yellow-400"
+          className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground outline-none focus:border-accent"
         >
-          <option value="0">Tüm Türler</option>
+          <option value="0">{t(language, "home", "allGenres")}</option>
 
           {genres.map((genre) => (
             <option key={genre.id} value={genre.id}>
@@ -47,28 +57,22 @@ export default function MovieFilters({
       <div>
         <label
           htmlFor="sort"
-          className="mb-2 block text-sm font-semibold text-neutral-300"
+          className="mb-2 block text-sm font-semibold text-muted"
         >
-          Sıralama
+          {t(language, "home", "sortFieldLabel")}
         </label>
 
         <select
           id="sort"
           name="sort"
           defaultValue={selectedSort}
-          className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-white outline-none focus:border-yellow-400"
+          className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground outline-none focus:border-accent"
         >
-          <option value="popularity.desc">
-            En Popüler
-          </option>
-
-          <option value="vote_average.desc">
-            En Yüksek Puan
-          </option>
-
-          <option value="primary_release_date.desc">
-            En Yeni
-          </option>
+          {SORT_VALUES.map((sortValue) => (
+            <option key={sortValue} value={sortValue}>
+              {t(language, "sorts", sortValue)}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -76,9 +80,9 @@ export default function MovieFilters({
 
       <button
         type="submit"
-        className="self-end rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
+        className="self-end rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
       >
-        Filtrele
+        {t(language, "home", "filterCta")}
       </button>
     </form>
   );

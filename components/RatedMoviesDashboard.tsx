@@ -5,6 +5,8 @@ import Link from "next/link";
 import CompactRatedMovieCard from "@/components/CompactRatedMovieCard";
 import { useMoviesByIds } from "@/components/hooks/useMoviesByIds";
 import { useMovieRatings } from "@/components/SavedMoviesProvider";
+import { useSettings } from "@/components/SettingsProvider";
+import { buildRatingDistributionAriaLabel, t } from "@/lib/i18n";
 
 const DISTRIBUTION_BUCKETS = [
   { label: "1 - 2", min: 0, max: 2 },
@@ -24,12 +26,12 @@ function getDistribution(values: number[]) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+      <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
     </div>
   );
 }
@@ -41,10 +43,10 @@ function DashboardSkeleton() {
         {Array.from({ length: 2 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-xl border border-neutral-800 bg-neutral-900 p-4"
+            className="rounded-xl border border-border bg-surface p-4"
           >
-            <div className="h-3 w-20 animate-pulse rounded bg-neutral-800" />
-            <div className="mt-3 h-7 w-16 animate-pulse rounded bg-neutral-800" />
+            <div className="h-3 w-20 animate-pulse rounded bg-surface-elevated" />
+            <div className="mt-3 h-7 w-16 animate-pulse rounded bg-surface-elevated" />
           </div>
         ))}
       </div>
@@ -53,7 +55,7 @@ function DashboardSkeleton() {
         {Array.from({ length: 5 }).map((_, index) => (
           <div
             key={index}
-            className="h-5 animate-pulse rounded-full bg-neutral-800"
+            className="h-5 animate-pulse rounded-full bg-surface-elevated"
           />
         ))}
       </div>
@@ -62,13 +64,13 @@ function DashboardSkeleton() {
         {Array.from({ length: 6 }).map((_, index) => (
           <div
             key={index}
-            className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+            className="overflow-hidden rounded-xl border border-border bg-surface"
           >
-            <div className="aspect-[2/3] animate-pulse bg-neutral-800" />
+            <div className="aspect-[2/3] animate-pulse bg-surface-elevated" />
 
             <div className="space-y-2 p-3">
-              <div className="h-4 animate-pulse rounded bg-neutral-800" />
-              <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-800" />
+              <div className="h-4 animate-pulse rounded bg-surface-elevated" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-surface-elevated" />
             </div>
           </div>
         ))}
@@ -79,6 +81,8 @@ function DashboardSkeleton() {
 
 export default function RatedMoviesDashboard() {
   const { ratings, isLoaded, getMovieRating } = useMovieRatings();
+  const { settings } = useSettings();
+  const language = settings.language;
 
   const movieIds = useMemo(() => Object.keys(ratings).map(Number), [ratings]);
   const ratingValues = useMemo(() => Object.values(ratings), [ratings]);
@@ -110,9 +114,9 @@ export default function RatedMoviesDashboard() {
         return ratingB - ratingA;
       }
 
-      return a.title.localeCompare(b.title, "tr");
+      return a.title.localeCompare(b.title, language === "tr" ? "tr" : "en");
     });
-  }, [movies, getMovieRating]);
+  }, [movies, getMovieRating, language]);
 
   if (!isLoaded) {
     return <DashboardSkeleton />;
@@ -120,28 +124,28 @@ export default function RatedMoviesDashboard() {
 
   if (totalCount === 0) {
     return (
-      <div className="mt-10 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+      <div className="mt-10 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
         <h2 className="text-xl font-semibold">
-          Henüz hiçbir filme puan vermedin
+          {t(language, "ratings", "emptyTitle")}
         </h2>
 
-        <p className="mt-3 text-neutral-400">
-          Bir film detay sayfasından kendi puanını verebilirsin.
+        <p className="mt-3 text-muted">
+          {t(language, "ratings", "emptyDescription")}
         </p>
 
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Link
             href="/"
-            className="rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+            className="rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
           >
-            Filmleri Keşfet
+            {t(language, "common", "exploreMovies")}
           </Link>
 
           <Link
             href="/search"
-            className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold text-neutral-200 transition hover:border-yellow-400 hover:text-yellow-400"
+            className="rounded-lg border border-border px-5 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
           >
-            Film Ara
+            {t(language, "common", "searchMoviesCta")}
           </Link>
         </div>
       </div>
@@ -152,16 +156,21 @@ export default function RatedMoviesDashboard() {
     <div className="mt-10">
       <section>
         <div className="grid grid-cols-2 gap-4">
-          <StatTile label="Toplam Puanlanan Film" value={totalCount.toString()} />
           <StatTile
-            label="Ortalama Puan"
+            label={t(language, "ratings", "totalRated")}
+            value={totalCount.toString()}
+          />
+          <StatTile
+            label={t(language, "ratings", "averageRating")}
             value={average !== null ? `${average.toFixed(1)} / 10` : "-"}
           />
         </div>
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Puan Dağılımı</h2>
+        <h2 className="text-xl font-semibold">
+          {t(language, "ratings", "distributionHeading")}
+        </h2>
 
         <ul className="mt-4 space-y-2">
           {distribution.map((bucket) => (
@@ -169,24 +178,28 @@ export default function RatedMoviesDashboard() {
               key={bucket.label}
               className="flex items-center gap-3 text-sm"
             >
-              <span className="w-16 shrink-0 text-neutral-400">
+              <span className="w-16 shrink-0 text-muted">
                 {bucket.label}
               </span>
 
               <div
                 role="img"
-                aria-label={`${bucket.label} puan aralığında ${bucket.count} film`}
-                className="h-3 flex-1 overflow-hidden rounded-full bg-neutral-800"
+                aria-label={buildRatingDistributionAriaLabel(
+                  language,
+                  bucket.label,
+                  bucket.count
+                )}
+                className="h-3 flex-1 overflow-hidden rounded-full bg-surface-elevated"
               >
                 <div
-                  className="h-full rounded-full bg-yellow-400"
+                  className="h-full rounded-full bg-accent"
                   style={{
                     width: `${(bucket.count / maxBucketCount) * 100}%`,
                   }}
                 />
               </div>
 
-              <span className="w-8 shrink-0 text-right text-neutral-300">
+              <span className="w-8 shrink-0 text-right text-foreground">
                 {bucket.count}
               </span>
             </li>
@@ -195,32 +208,34 @@ export default function RatedMoviesDashboard() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Puanladığın Filmler</h2>
+        <h2 className="text-xl font-semibold">
+          {t(language, "ratings", "ratedMoviesHeading")}
+        </h2>
 
         {isLoadingMovies ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+                className="overflow-hidden rounded-xl border border-border bg-surface"
               >
-                <div className="aspect-[2/3] animate-pulse bg-neutral-800" />
+                <div className="aspect-[2/3] animate-pulse bg-surface-elevated" />
 
                 <div className="space-y-2 p-3">
-                  <div className="h-4 animate-pulse rounded bg-neutral-800" />
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-800" />
+                  <div className="h-4 animate-pulse rounded bg-surface-elevated" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-surface-elevated" />
                 </div>
               </div>
             ))}
           </div>
         ) : hasError ? (
-          <div className="mt-6 rounded-2xl border border-red-500/40 bg-red-500/10 p-10 text-center">
-            <h3 className="text-lg font-semibold text-red-400">
-              Film bilgileri yüklenemedi
+          <div className="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-10 text-center">
+            <h3 className="text-lg font-semibold text-danger">
+              {t(language, "ratings", "movieInfoErrorTitle")}
             </h3>
 
-            <p className="mt-3 text-neutral-400">
-              Sayfayı yenileyip tekrar dene.
+            <p className="mt-3 text-muted">
+              {t(language, "common", "loadErrorDescription")}
             </p>
           </div>
         ) : (

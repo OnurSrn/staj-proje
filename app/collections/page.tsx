@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 import {
   CINEA_COLLECTIONS,
   type CollectionAccent,
@@ -11,62 +13,71 @@ export const metadata: Metadata = {
 };
 
 const ACCENT_GRADIENTS: Record<CollectionAccent, string> = {
-  purple: "from-purple-500/20 via-neutral-900 to-neutral-900",
-  red: "from-red-500/20 via-neutral-900 to-neutral-900",
-  blue: "from-blue-500/20 via-neutral-900 to-neutral-900",
-  green: "from-green-500/20 via-neutral-900 to-neutral-900",
-  amber: "from-amber-500/20 via-neutral-900 to-neutral-900",
-  cyan: "from-cyan-500/20 via-neutral-900 to-neutral-900",
+  purple: "from-purple-500/20 via-surface to-surface",
+  red: "from-red-500/20 via-surface to-surface",
+  blue: "from-blue-500/20 via-surface to-surface",
+  green: "from-green-500/20 via-surface to-surface",
+  amber: "from-amber-500/20 via-surface to-surface",
+  cyan: "from-cyan-500/20 via-surface to-surface",
 };
 
+// Bu proje `dark:` varyantını değil, [data-theme] attribute'unu kullanıyor
+// (bkz. app/globals.css) — `dark:` burada kullanılırsa gerçek tema yerine
+// işletim sistemi tercihine bağlı kalır ve "system" dışındaki temalarda
+// yanlış renk gösterebilir. Bu yüzden her accent için tek, her iki temada
+// da yeterli kontrasta sahip bir ton (500) seçildi.
 const ACCENT_TEXT: Record<CollectionAccent, string> = {
-  purple: "text-purple-300",
-  red: "text-red-300",
-  blue: "text-blue-300",
-  green: "text-green-300",
-  amber: "text-amber-300",
-  cyan: "text-cyan-300",
+  purple: "text-purple-500",
+  red: "text-red-500",
+  blue: "text-blue-500",
+  green: "text-green-500",
+  amber: "text-amber-500",
+  cyan: "text-cyan-500",
 };
 
-export default function CollectionsPage() {
+export default async function CollectionsPage() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          CiNeA Collections
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "collections", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Collections</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "collections", "title")}
+        </h1>
 
-        <p className="mt-4 text-neutral-400">
-          Ruh haline uygun tematik koleksiyonlardan birini seç.
+        <p className="mt-4 text-muted">
+          {t(language, "collections", "subtitle")}
         </p>
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {CINEA_COLLECTIONS.map((collection) => (
             <div
               key={collection.slug}
-              className={`flex flex-col justify-between rounded-2xl border border-neutral-800 bg-gradient-to-br p-5 ${ACCENT_GRADIENTS[collection.accent]}`}
+              className={`flex flex-col justify-between rounded-2xl border border-border bg-gradient-to-br p-5 ${ACCENT_GRADIENTS[collection.accent]}`}
             >
               <div>
                 <p
                   className={`text-xs font-semibold uppercase tracking-widest ${ACCENT_TEXT[collection.accent]}`}
                 >
-                  Koleksiyon
+                  {t(language, "collections", "cardEyebrow")}
                 </p>
 
                 <h2 className="mt-2 text-xl font-bold">{collection.title}</h2>
 
-                <p className="mt-3 text-sm text-neutral-300">
+                <p className="mt-3 text-sm text-foreground">
                   {collection.shortDescription}
                 </p>
               </div>
 
               <Link
                 href={`/collections/${collection.slug}`}
-                className="mt-6 inline-block rounded-lg bg-yellow-400 px-5 py-3 text-center font-semibold text-black transition hover:bg-yellow-300"
+                className="mt-6 inline-block rounded-lg bg-accent px-5 py-3 text-center font-semibold text-accent-foreground transition hover:bg-accent-hover"
               >
-                Koleksiyonu Aç
+                {t(language, "collections", "openCollectionCta")}
               </Link>
             </div>
           ))}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useSavedMovies } from "@/components/SavedMoviesProvider";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 
 type MovieActionsProps = {
   movieId: number;
@@ -14,12 +16,14 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
     toggleFavorite,
     toggleWatchlist,
   } = useSavedMovies();
+  const { settings } = useSettings();
+  const language = settings.language;
 
   if (!isLoaded) {
     return (
       <div className="mt-8 flex flex-wrap gap-4">
-        <div className="h-12 w-40 animate-pulse rounded-lg bg-neutral-800" />
-        <div className="h-12 w-44 animate-pulse rounded-lg bg-neutral-800" />
+        <div className="h-12 w-40 animate-pulse rounded-lg bg-surface-elevated" />
+        <div className="h-12 w-44 animate-pulse rounded-lg bg-surface-elevated" />
       </div>
     );
   }
@@ -34,11 +38,13 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
         onClick={() => toggleFavorite(movieId)}
         className={
           favorite
-            ? "rounded-lg bg-red-500 px-6 py-3 font-semibold text-white transition hover:bg-red-400"
-            : "rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
+            ? "rounded-lg bg-danger px-6 py-3 font-semibold text-white transition hover:opacity-90"
+            : "rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
         }
       >
-        {favorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+        {favorite
+          ? t(language, "movieActions", "removeFavorite")
+          : t(language, "movieActions", "addFavorite")}
       </button>
 
       <button
@@ -46,11 +52,13 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
         onClick={() => toggleWatchlist(movieId)}
         className={
           inWatchlist
-            ? "rounded-lg border border-green-400 bg-green-400/10 px-6 py-3 font-semibold text-green-400 transition hover:bg-green-400/20"
-            : "rounded-lg border border-neutral-700 px-6 py-3 font-semibold transition hover:border-yellow-400 hover:text-yellow-400"
+            ? "rounded-lg border border-success bg-success/10 px-6 py-3 font-semibold text-success transition hover:bg-success/20"
+            : "rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
         }
       >
-        {inWatchlist ? "Watchlist'ten Çıkar" : "Watchlist'e Ekle"}
+        {inWatchlist
+          ? t(language, "movieActions", "removeWatchlist")
+          : t(language, "movieActions", "addWatchlist")}
       </button>
     </div>
   );

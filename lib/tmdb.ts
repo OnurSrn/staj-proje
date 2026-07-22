@@ -60,6 +60,17 @@ export type ProductionCompany = {
   origin_country: string;
 };
 
+// TMDB movie details yanıtındaki belongs_to_collection alanının kısaltılmış
+// referansı — collection'ın kendi film listesini (parts) İÇERMEZ, yalnızca
+// hangi collection'a ait olduğunu gösterir. Diğer filmleri almak için ayrıca
+// getCollectionDetails çağrılmalı.
+export type TmdbCollectionReference = {
+  id: number;
+  name: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+};
+
 export type MovieDetails = TmdbMovie & {
   runtime: number | null;
   tagline: string;
@@ -68,6 +79,7 @@ export type MovieDetails = TmdbMovie & {
   origin_country: string[];
   genres: MovieGenre[];
   production_companies: ProductionCompany[];
+  belongs_to_collection: TmdbCollectionReference | null;
   credits: {
     cast: MovieCastMember[];
     crew: MovieCrewMember[];
@@ -83,6 +95,17 @@ export type MovieDetails = TmdbMovie & {
   keywords: {
     keywords: MovieKeyword[];
   };
+};
+
+// TMDB /collection/{id} yanıtı — yalnızca kullandığımız alanlar tip
+// güvenliğine alınır, geri kalan ham alanlar client'a hiç taşınmaz.
+export type TmdbCollectionDetails = {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  parts: TmdbMovie[];
 };
 
 export type MovieCategory =
@@ -208,6 +231,18 @@ export type CompanySearchResponse = {
   total_results: number;
 };
 
+// TMDB /person/{id} external_ids yalnızca gerçekten döndürdüğü alanlar
+// desteklenir — tiktok_id/youtube_id bazı kişilerde bulunmayabileceği için
+// opsiyonel bırakılır.
+export type PersonExternalIds = {
+  imdb_id: string | null;
+  facebook_id: string | null;
+  instagram_id: string | null;
+  twitter_id: string | null;
+  tiktok_id?: string | null;
+  youtube_id?: string | null;
+};
+
 export type PersonDetails = {
   id: number;
   name: string;
@@ -217,6 +252,7 @@ export type PersonDetails = {
   place_of_birth: string | null;
   known_for_department: string;
   profile_path: string | null;
+  external_ids: PersonExternalIds | null;
 };
 
 export type PersonMovieCredit = {
@@ -231,8 +267,27 @@ export type PersonMovieCredit = {
   popularity: number;
 };
 
+export type PersonMovieCrewCredit = {
+  id: number;
+  title: string;
+  job: string;
+  department: string;
+  overview: string;
+  poster_path: string | null;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  popularity: number;
+};
+
+export type PersonMovieCredits = {
+  cast: PersonMovieCredit[];
+  crew: PersonMovieCrewCredit[];
+};
+
 type PersonMovieCreditsResponse = {
   cast: PersonMovieCredit[];
+  crew: PersonMovieCrewCredit[];
 };
 
 type MovieGenresResponse = {
@@ -806,6 +861,90 @@ export async function getMovieKeywords(
   return data.keywords;
 }
 
+export type MovieKeywordsAndCollection = {
+  keywordIds: number[];
+  collectionId: number | null;
+};
+
+type MovieKeywordsAndCollectionResponse = {
+  belongs_to_collection: TmdbCollectionReference | null;
+  keywords: MovieKeywordsResponse;
+};
+
+// Koleksiyon motoru (lib/collectionEngine.ts) her aday film için zaten
+// anahtar kelime isteği atıyordu (getMovieKeywords, /movie/{id}/keywords).
+// Franchise dedup'ın ihtiyaç duyduğu belongs_to_collection.id ise yalnızca
+// TEMEL /movie/{id} gövdesinde bulunur — discover sonuçlarında yoktur ve
+// /keywords uç noktası da döndürmez. İkisi için ayrı istek atmak yerine,
+// TMDB'nin append_to_response=keywords özelliğiyle AYNI TEK istekte hem
+// temel gövde (belongs_to_collection dahil) hem de keywords alt-kaynağı
+// birlikte çekilir — bu da getMovieKeywords ile bire bir aynı /keywords
+// şeklini (keywords.keywords) döndürür. Böylece franchise dedup, önceden
+// var olan keyword isteğine "biner"; ayrı bir istek fazı eklenmez.
+export async function getMovieKeywordsAndCollectionId(
+  movieId: number
+): Promise<MovieKeywordsAndCollection> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=keywords`,
+    {
+      next: {
+        revalidate: 604800,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Film anahtar kelimeleri/koleksiyon bilgisi alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data: MovieKeywordsAndCollectionResponse = await response.json();
+
+  return {
+    keywordIds: data.keywords.keywords.map((keyword) => keyword.id),
+    collectionId: data.belongs_to_collection?.id ?? null,
+  };
+}
+
+type MovieCollectionMembershipResponse = {
+  belongs_to_collection: TmdbCollectionReference | null;
+};
+
+// Yalnızca koleksiyon motorunun keyword'e ihtiyaç duymadığı (dolayısıyla
+// getMovieKeywordsAndCollectionId'e "binecek" bir isteğin hiç olmadığı)
+// nadir yol için kullanılır — ve orada da yalnızca başlığa göre olası
+// franchise tekrarı tespit edilen küçük bir alt küme için (bkz.
+// lib/collectionEngine.ts). getMovieDetails'in ağır
+// append_to_response=credits,videos,recommendations,keywords sürümü bu amaç
+// için gereksizdir.
+export async function getMovieCollectionId(
+  movieId: number
+): Promise<number | null> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US`,
+    {
+      next: {
+        revalidate: 604800,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Film koleksiyon bilgisi alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data: MovieCollectionMembershipResponse = await response.json();
+
+  return data.belongs_to_collection?.id ?? null;
+}
+
 export async function getMovieGenres(): Promise<MovieGenre[]> {
   const apiKey = getApiKey();
 
@@ -982,13 +1121,201 @@ export async function getMovieDetails(
   return response.json();
 }
 
+// For You/DNA akışı (bkz. lib/movieDna.ts, components/hooks/useRecommendations.ts)
+// getMovieDetails'in tüm alanlarına ihtiyaç duymaz: yalnızca credits (cast/
+// crew id+isim eşleştirmesi ve castId/directorId/companyId puanlaması için)
+// ve keywords (Movie DNA sinyalleri için) okunur — videos ve recommendations
+// bu akışta hiç kullanılmaz. getMovieDetails'in ağır
+// append_to_response=credits,videos,recommendations,keywords sürümünü aday
+// başına (For You'da 40'a kadar) çekmek gereksiz payload/istek ağırlığı
+// yaratır; bu yüzden aynı MovieDetails şeklini (videos/recommendations boş)
+// döndüren daha hafif bir varyant burada tanımlanır.
+export async function getMovieDnaDetails(
+  movieId: string
+): Promise<MovieDetails> {
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=credits,keywords`,
+    {
+      next: {
+        revalidate: 3600,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new TmdbNotFoundError(`Film bulunamadı: ${movieId}`);
+    }
+
+    throw new Error(
+      `Film detayları alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+
+  return {
+    ...data,
+    videos: { results: [] },
+    recommendations: { results: [] },
+  };
+}
+
+// belongs_to_collection yalnızca bir referans (id/isim/poster) döndürür;
+// diğer seri filmlerini almak için ayrı bir /collection/{id} isteği
+// gerekir. movie details ile aynı revalidate stratejisi kullanılır — film
+// detay sayfası zaten bu süreyle önbelleklendiği için tutarlıdır.
+export async function getCollectionDetails(
+  collectionId: number
+): Promise<TmdbCollectionDetails | null> {
+  if (!Number.isInteger(collectionId) || collectionId <= 0) {
+    return null;
+  }
+
+  const apiKey = getApiKey();
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/collection/${collectionId}?api_key=${apiKey}&language=en-US`,
+    {
+      next: {
+        revalidate: 3600,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+
+    throw new Error(
+      `Koleksiyon detayları alınamadı. Hata kodu: ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+
+  // Ham TMDB yanıtına doğrudan güvenilmez — yalnızca kullanılan alanlar,
+  // beklenen tipte olduğu doğrulanarak normalize edilir.
+  return {
+    id: typeof data?.id === "number" ? data.id : collectionId,
+    name: typeof data?.name === "string" ? data.name : "",
+    overview: typeof data?.overview === "string" ? data.overview : "",
+    poster_path:
+      typeof data?.poster_path === "string" ? data.poster_path : null,
+    backdrop_path:
+      typeof data?.backdrop_path === "string" ? data.backdrop_path : null,
+    parts: Array.isArray(data?.parts) ? data.parts : [],
+  };
+}
+
+function getValidReleaseTime(releaseDate: string | undefined): number | null {
+  if (!releaseDate) {
+    return null;
+  }
+
+  const time = new Date(releaseDate).getTime();
+
+  return Number.isFinite(time) ? time : null;
+}
+
+function compareCollectionMovies(a: TmdbMovie, b: TmdbMovie): number {
+  const aTime = getValidReleaseTime(a.release_date);
+  const bTime = getValidReleaseTime(b.release_date);
+
+  // Tarihi olmayanlar her zaman en sona — hangi tarafta olduklarından
+  // bağımsız (bkz. görev talimatı: "Tarihi olmayanları en sona koy").
+  if (aTime === null && bTime === null) {
+    return a.id - b.id;
+  }
+
+  if (aTime === null) {
+    return 1;
+  }
+
+  if (bTime === null) {
+    return -1;
+  }
+
+  if (aTime !== bTime) {
+    return aTime - bTime;
+  }
+
+  return a.id - b.id;
+}
+
+/**
+ * Bir koleksiyonun ham "parts" listesini, mevcut filmi hariç tutarak,
+ * geçersiz/tekrarlayan kayıtlardan arındırılmış ve çıkış tarihine göre
+ * (eskiden yeniye, tarihsizler sona) deterministik sıralanmış bir listeye
+ * çevirir. Saf bir fonksiyondur — fetch yapmaz, aynı girdi her zaman aynı
+ * çıktıyı üretir.
+ */
+export function normalizeCollectionMovies(
+  collection: TmdbCollectionDetails,
+  currentMovieId: number
+): TmdbMovie[] {
+  const seenIds = new Set<number>();
+  const movies: TmdbMovie[] = [];
+
+  for (const part of collection.parts) {
+    if (!part || typeof part.id !== "number" || !Number.isInteger(part.id) || part.id <= 0) {
+      continue;
+    }
+
+    if (part.id === currentMovieId) {
+      continue;
+    }
+
+    if (seenIds.has(part.id)) {
+      continue;
+    }
+
+    if (typeof part.title !== "string" || part.title.length === 0) {
+      continue;
+    }
+
+    seenIds.add(part.id);
+    movies.push(part);
+  }
+
+  return movies.sort(compareCollectionMovies);
+}
+
+// Ham external_ids alt-nesnesine doğrudan güvenilmez — TMDB bazı kişilerde
+// bu alanı hiç döndürmeyebilir ya da beklenmeyen tiplerle doldurabilir.
+function normalizePersonExternalIds(raw: unknown): PersonExternalIds | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+
+  const candidate = raw as Record<string, unknown>;
+
+  function asNullableString(value: unknown): string | null {
+    return typeof value === "string" && value.trim().length > 0
+      ? value
+      : null;
+  }
+
+  return {
+    imdb_id: asNullableString(candidate.imdb_id),
+    facebook_id: asNullableString(candidate.facebook_id),
+    instagram_id: asNullableString(candidate.instagram_id),
+    twitter_id: asNullableString(candidate.twitter_id),
+    tiktok_id: asNullableString(candidate.tiktok_id),
+    youtube_id: asNullableString(candidate.youtube_id),
+  };
+}
+
 export async function getPersonDetails(
   personId: string
 ): Promise<PersonDetails> {
   const apiKey = getApiKey();
 
   const response = await fetch(
-    `${TMDB_BASE_URL}/person/${personId}?api_key=${apiKey}&language=en-US`,
+    `${TMDB_BASE_URL}/person/${personId}?api_key=${apiKey}&language=en-US&append_to_response=external_ids`,
     {
       next: {
         revalidate: 86400,
@@ -1006,12 +1333,17 @@ export async function getPersonDetails(
     );
   }
 
-  return response.json();
+  const data = await response.json();
+
+  return {
+    ...data,
+    external_ids: normalizePersonExternalIds(data?.external_ids),
+  };
 }
 
 export async function getPersonMovieCredits(
   personId: string
-): Promise<PersonMovieCredit[]> {
+): Promise<PersonMovieCredits> {
   const apiKey = getApiKey();
 
   const response = await fetch(
@@ -1035,7 +1367,10 @@ export async function getPersonMovieCredits(
 
   const data: PersonMovieCreditsResponse = await response.json();
 
-  return data.cast;
+  return {
+    cast: Array.isArray(data.cast) ? data.cast : [],
+    crew: Array.isArray(data.crew) ? data.crew : [],
+  };
 }
 
 export function getPosterUrl(

@@ -1,26 +1,34 @@
 "use client";
 
 import { useId } from "react";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
 import {
   useWatchStatuses,
   type WatchStatus,
 } from "@/components/SavedMoviesProvider";
+import type { AppLanguage } from "@/lib/settings";
 
 type MovieWatchStatusProps = {
   movieId: number;
 };
 
-const STATUS_OPTIONS: { value: WatchStatus; label: string }[] = [
-  { value: "watched", label: "İzledim" },
-  { value: "watching", label: "İzliyorum" },
-  { value: "dropped", label: "Yarım Bıraktım" },
-  { value: "plan-to-watch", label: "Daha Sonra İzle" },
+const STATUS_VALUES: WatchStatus[] = [
+  "watched",
+  "watching",
+  "dropped",
+  "plan-to-watch",
 ];
 
-function getStatusLabel(status: WatchStatus): string {
-  return (
-    STATUS_OPTIONS.find((option) => option.value === status)?.label ?? ""
-  );
+const STATUS_KEY: Record<WatchStatus, "watched" | "watching" | "dropped" | "planToWatch"> = {
+  watched: "watched",
+  watching: "watching",
+  dropped: "dropped",
+  "plan-to-watch": "planToWatch",
+};
+
+function getStatusLabel(language: AppLanguage, status: WatchStatus): string {
+  return t(language, "ratingStatus", STATUS_KEY[status]);
 }
 
 export default function MovieWatchStatus({
@@ -28,13 +36,15 @@ export default function MovieWatchStatus({
 }: MovieWatchStatusProps) {
   const { isLoaded, getWatchStatus, setWatchStatus, removeWatchStatus } =
     useWatchStatuses();
+  const { settings } = useSettings();
+  const language = settings.language;
   const selectId = useId();
 
   if (!isLoaded) {
     return (
       <div className="mt-6 max-w-3xl">
-        <div className="h-4 w-32 animate-pulse rounded bg-neutral-800" />
-        <div className="mt-3 h-10 w-56 animate-pulse rounded-lg bg-neutral-800" />
+        <div className="h-4 w-32 animate-pulse rounded bg-surface-elevated" />
+        <div className="mt-3 h-10 w-56 animate-pulse rounded-lg bg-surface-elevated" />
       </div>
     );
   }
@@ -54,32 +64,34 @@ export default function MovieWatchStatus({
 
   return (
     <div className="mt-6 max-w-3xl">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-400">
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">
         {status !== null
-          ? `İzleme Durumu: ${getStatusLabel(status)}`
-          : "İzleme Durumu"}
+          ? `${t(language, "ratingStatus", "watchStatusHeading")}: ${getStatusLabel(language, status)}`
+          : t(language, "ratingStatus", "watchStatusHeading")}
       </h2>
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
           <label
             htmlFor={selectId}
-            className="mb-1 block text-xs text-neutral-500"
+            className="mb-1 block text-xs text-muted"
           >
-            Durum Seç
+            {t(language, "ratingStatus", "selectStatusLabel")}
           </label>
 
           <select
             id={selectId}
             value={status ?? ""}
             onChange={handleChange}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-white outline-none focus:border-yellow-400"
+            className="rounded-lg border border-border bg-input px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
           >
-            <option value="">Durum seçilmedi</option>
+            <option value="">
+              {t(language, "ratingStatus", "selectStatusPlaceholder")}
+            </option>
 
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {STATUS_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {getStatusLabel(language, value)}
               </option>
             ))}
           </select>
@@ -89,9 +101,9 @@ export default function MovieWatchStatus({
           <button
             type="button"
             onClick={() => removeWatchStatus(movieId)}
-            className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+            className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-danger hover:text-white"
           >
-            Durumu Kaldır
+            {t(language, "ratingStatus", "removeStatus")}
           </button>
         )}
       </div>

@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
+import PersonDetailPreferenceActions from "@/components/PersonDetailPreferenceActions";
+import PersonSocialLinks from "@/components/PersonSocialLinks";
+import { t } from "@/lib/i18n";
+import { buildPersonExternalLinks, detectPersonRoles } from "@/lib/personProfile";
+import { getServerLanguage } from "@/lib/serverLanguage";
+import type { AppLanguage } from "@/lib/settings";
 import {
   getPersonDetails,
   getPersonMovieCredits,
@@ -44,16 +50,19 @@ export async function generateMetadata({
   }
 }
 
-function formatDate(dateString: string | null) {
+function formatDate(language: AppLanguage, dateString: string | null) {
   if (!dateString) {
     return null;
   }
 
-  return new Date(dateString).toLocaleDateString("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return new Date(dateString).toLocaleDateString(
+    language === "tr" ? "tr-TR" : "en-US",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
+  );
 }
 
 function getTopUniqueMovies(
@@ -85,11 +94,13 @@ export default async function PersonDetailsPage({
 
   let person;
   let credits;
+  let language: AppLanguage;
 
   try {
-    [person, credits] = await Promise.all([
+    [person, credits, language] = await Promise.all([
       getPersonDetails(id),
       getPersonMovieCredits(id),
+      getServerLanguage(),
     ]);
   } catch (error) {
     if (error instanceof TmdbNotFoundError) {
@@ -100,14 +111,20 @@ export default async function PersonDetailsPage({
   }
 
   const profileUrl = getProfileUrl(person.profile_path);
-  const birthDate = formatDate(person.birthday);
-  const movies = getTopUniqueMovies(credits);
+  const birthDate = formatDate(language, person.birthday);
+  const movies = getTopUniqueMovies(credits.cast);
+  const socialLinks = buildPersonExternalLinks(person.external_ids);
+  const { canFavoriteAsActor, canFavoriteAsDirector } = detectPersonRoles(
+    person,
+    credits.cast,
+    credits.crew
+  );
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-10 md:grid-cols-[280px_1fr]">
-          <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl">
+          <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
             {profileUrl ? (
               <Image
                 src={profileUrl}
@@ -118,15 +135,15 @@ export default async function PersonDetailsPage({
                 className="object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center px-4 text-center text-neutral-500">
-                Görsel bulunamadı
+              <div className="flex h-full items-center justify-center px-4 text-center text-muted">
+                {t(language, "common", "noProfileImage")}
               </div>
             )}
           </div>
 
           <div className="flex flex-col justify-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-              Kişi Detayları
+            <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+              {t(language, "personDetail", "eyebrow")}
             </p>
 
             <h1 className="mt-4 text-4xl font-bold sm:text-5xl">
@@ -135,25 +152,39 @@ export default async function PersonDetailsPage({
 
             <div className="mt-6 flex flex-wrap gap-3 text-sm">
               {person.known_for_department && (
-                <span className="rounded-full bg-yellow-400 px-3 py-1 font-semibold text-black">
+                <span className="rounded-full bg-accent px-3 py-1 font-semibold text-accent-foreground">
                   {person.known_for_department}
                 </span>
               )}
 
-              <span className="rounded-full border border-neutral-700 px-3 py-1 text-neutral-300">
-                {birthDate || "Doğum tarihi yok"}
+              <span className="rounded-full border border-border px-3 py-1 text-foreground">
+                {birthDate || t(language, "personDetail", "noBirthDate")}
               </span>
 
-              <span className="rounded-full border border-neutral-700 px-3 py-1 text-neutral-300">
-                {person.place_of_birth || "Doğum yeri yok"}
+              <span className="rounded-full border border-border px-3 py-1 text-foreground">
+                {person.place_of_birth ||
+                  t(language, "personDetail", "noBirthPlace")}
               </span>
+
+              <PersonSocialLinks links={socialLinks} />
             </div>
 
-            <section className="mt-8 max-w-3xl">
-              <h2 className="text-xl font-semibold">Biyografi</h2>
+            <PersonDetailPreferenceActions
+              id={person.id}
+              name={person.name}
+              profilePath={person.profile_path}
+              canFavoriteAsActor={canFavoriteAsActor}
+              canFavoriteAsDirector={canFavoriteAsDirector}
+            />
 
-              <p className="mt-3 leading-7 text-neutral-300">
-                {person.biography || "Bu kişi için biyografi bulunmuyor."}
+            <section className="mt-8 max-w-3xl">
+              <h2 className="text-xl font-semibold">
+                {t(language, "personDetail", "biographyHeading")}
+              </h2>
+
+              <p className="mt-3 leading-7 text-foreground">
+                {person.biography ||
+                  t(language, "personDetail", "noBiography")}
               </p>
             </section>
           </div>
@@ -161,11 +192,13 @@ export default async function PersonDetailsPage({
 
         <section className="mt-16">
           <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-              Filmography
+            <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+              {t(language, "personDetail", "filmographyEyebrow")}
             </p>
 
-            <h2 className="mt-3 text-3xl font-bold">Filmleri</h2>
+            <h2 className="mt-3 text-3xl font-bold">
+              {t(language, "personDetail", "filmographyHeading")}
+            </h2>
           </div>
 
           {movies.length > 0 ? (
@@ -184,13 +217,13 @@ export default async function PersonDetailsPage({
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+            <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
               <h3 className="text-xl font-semibold">
-                Film bulunamadı
+                {t(language, "personDetail", "noMoviesTitle")}
               </h3>
 
-              <p className="mt-3 text-neutral-400">
-                Bu kişi için filmografi bilgisi bulunmuyor.
+              <p className="mt-3 text-muted">
+                {t(language, "personDetail", "noMoviesDescription")}
               </p>
             </div>
           )}

@@ -1,6 +1,16 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useSettings } from "@/components/SettingsProvider";
+import {
+  getCompanyOptions,
+  getDiscoveryOptions,
+  getIntensityOptions,
+  getMoodOptions,
+  getRuntimeOptions,
+  t,
+} from "@/lib/i18n";
+import { buildWhatToWatchDescription } from "@/lib/whatToWatch";
 import type {
   Company,
   Discovery,
@@ -9,14 +19,6 @@ import type {
   MovieGenre,
   RuntimePreference,
 } from "@/lib/tmdb";
-import {
-  COMPANY_OPTIONS,
-  DISCOVERY_OPTIONS,
-  INTENSITY_OPTIONS,
-  MOOD_OPTIONS,
-  RUNTIME_OPTIONS,
-  buildWhatToWatchDescription,
-} from "@/lib/whatToWatch";
 
 type WhatToWatchFormProps = {
   genres: MovieGenre[];
@@ -29,9 +31,9 @@ type WhatToWatchFormProps = {
 };
 
 const selectClassName =
-  "w-full rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-white outline-none focus:border-yellow-400";
+  "w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground outline-none focus:border-accent";
 
-const labelClassName = "mb-2 block text-sm font-semibold text-neutral-300";
+const labelClassName = "mb-2 block text-sm font-semibold text-muted";
 
 export default function WhatToWatchForm({
   genres,
@@ -42,6 +44,9 @@ export default function WhatToWatchForm({
   defaultDiscovery,
   defaultGenreId,
 }: WhatToWatchFormProps) {
+  const { settings } = useSettings();
+  const language = settings.language;
+
   const [mood, setMood] = useState<Mood>(defaultMood);
   const [runtime, setRuntime] = useState<RuntimePreference>(defaultRuntime);
   const [intensity, setIntensity] = useState<Intensity>(defaultIntensity);
@@ -61,7 +66,7 @@ export default function WhatToWatchForm({
       ? genres.find((genre) => genre.id === genreId)?.name ?? null
       : null;
 
-  const previewText = buildWhatToWatchDescription({
+  const previewText = buildWhatToWatchDescription(language, {
     mood,
     runtime,
     company,
@@ -72,12 +77,12 @@ export default function WhatToWatchForm({
     <form
       action="/what-to-watch"
       method="GET"
-      className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5"
+      className="rounded-2xl border border-border bg-surface p-5"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label htmlFor={moodId} className={labelClassName}>
-            Ruh Hâli
+            {t(language, "whatToWatch", "moodLabel")}
           </label>
 
           <select
@@ -87,7 +92,7 @@ export default function WhatToWatchForm({
             onChange={(event) => setMood(event.target.value as Mood)}
             className={selectClassName}
           >
-            {MOOD_OPTIONS.map((option) => (
+            {getMoodOptions(language).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -97,7 +102,7 @@ export default function WhatToWatchForm({
 
         <div>
           <label htmlFor={runtimeId} className={labelClassName}>
-            Süre
+            {t(language, "whatToWatch", "runtimeLabel")}
           </label>
 
           <select
@@ -109,7 +114,7 @@ export default function WhatToWatchForm({
             }
             className={selectClassName}
           >
-            {RUNTIME_OPTIONS.map((option) => (
+            {getRuntimeOptions(language).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -119,7 +124,7 @@ export default function WhatToWatchForm({
 
         <div>
           <label htmlFor={intensityId} className={labelClassName}>
-            Yoğunluk
+            {t(language, "whatToWatch", "intensityLabel")}
           </label>
 
           <select
@@ -131,7 +136,7 @@ export default function WhatToWatchForm({
             }
             className={selectClassName}
           >
-            {INTENSITY_OPTIONS.map((option) => (
+            {getIntensityOptions(language).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -141,7 +146,7 @@ export default function WhatToWatchForm({
 
         <div>
           <label htmlFor={companyId} className={labelClassName}>
-            İzleme Ortamı
+            {t(language, "whatToWatch", "companyLabel")}
           </label>
 
           <select
@@ -151,7 +156,7 @@ export default function WhatToWatchForm({
             onChange={(event) => setCompany(event.target.value as Company)}
             className={selectClassName}
           >
-            {COMPANY_OPTIONS.map((option) => (
+            {getCompanyOptions(language).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -161,7 +166,7 @@ export default function WhatToWatchForm({
 
         <div>
           <label htmlFor={discoveryId} className={labelClassName}>
-            Keşif Tercihi
+            {t(language, "whatToWatch", "discoveryLabel")}
           </label>
 
           <select
@@ -173,7 +178,7 @@ export default function WhatToWatchForm({
             }
             className={selectClassName}
           >
-            {DISCOVERY_OPTIONS.map((option) => (
+            {getDiscoveryOptions(language).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -183,7 +188,7 @@ export default function WhatToWatchForm({
 
         <div>
           <label htmlFor={genreSelectId} className={labelClassName}>
-            Film Türü
+            {t(language, "whatToWatch", "genreLabel")}
           </label>
 
           <select
@@ -193,7 +198,9 @@ export default function WhatToWatchForm({
             onChange={(event) => setGenreId(Number(event.target.value))}
             className={selectClassName}
           >
-            <option value="0">Tür fark etmez</option>
+            <option value="0">
+              {t(language, "whatToWatch", "genreAnyOption")}
+            </option>
 
             {genres.map((genre) => (
               <option key={genre.id} value={genre.id}>
@@ -204,13 +211,13 @@ export default function WhatToWatchForm({
         </div>
       </div>
 
-      <p className="mt-5 text-sm text-neutral-400">{previewText}</p>
+      <p className="mt-5 text-sm text-muted">{previewText}</p>
 
       <button
         type="submit"
-        className="mt-5 rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
+        className="mt-5 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
       >
-        Film Öner
+        {t(language, "whatToWatch", "submit")}
       </button>
     </form>
   );

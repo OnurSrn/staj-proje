@@ -10,6 +10,13 @@ type UseMoviesByIdsResult = {
   failedMovieIds: number[];
 };
 
+// mode "dna": /api/movies/[id]?mode=dna — yalnızca For You/DNA akışının
+// kullandığı hafif alan setini çeker (bkz. lib/tmdb.ts getMovieDnaDetails).
+// Belirtilmezse mevcut tam detay davranışı (geriye dönük uyumlu) korunur.
+type UseMoviesByIdsOptions = {
+  mode?: "dna";
+};
+
 type FetchOutcome =
   | { movieId: number; movie: MovieDetails; failed: false }
   | { movieId: number; movie: null; failed: true };
@@ -34,10 +41,12 @@ const MOVIE_FETCH_CONCURRENCY = 6;
 
 async function fetchMovie(
   movieId: number,
+  mode: "dna" | undefined,
   signal: AbortSignal
 ): Promise<FetchOutcome> {
   try {
-    const response = await fetch(`/api/movies/${movieId}`, {
+    const query = mode ? `?mode=${mode}` : "";
+    const response = await fetch(`/api/movies/${movieId}${query}`, {
       cache: "no-store",
       signal,
     });
@@ -54,8 +63,16 @@ async function fetchMovie(
   }
 }
 
-export function useMoviesByIds(movieIds: number[]): UseMoviesByIdsResult {
+export function useMoviesByIds(
+  movieIds: number[],
+  options: UseMoviesByIdsOptions = {}
+): UseMoviesByIdsResult {
+  const { mode } = options;
   const idsKey = Array.from(new Set(movieIds)).join(",");
+  // mode'u anahtara katmak, aynı id listesinin farklı modlarla ardışık
+  // çağrılması durumunda (bu hook'un birden çok çağıranı arasında) yanlış
+  // moddan kalma bir sonucun gösterilmesini engeller.
+  const cacheKey = mode ? `${mode}:${idsKey}` : idsKey;
 
   const [completed, setCompleted] = useState<CompletedFetch>(EMPTY_COMPLETED);
 
@@ -78,6 +95,7 @@ export function useMoviesByIds(movieIds: number[]): UseMoviesByIdsResult {
           cursor += 1;
           outcomes[index] = await fetchMovie(
             uniqueIds[index],
+            mode,
             controller.signal
           );
         }
@@ -102,7 +120,7 @@ export function useMoviesByIds(movieIds: number[]): UseMoviesByIdsResult {
         .filter((outcome) => outcome.failed)
         .map((outcome) => outcome.movieId);
 
-      setCompleted({ key: idsKey, movies, failedMovieIds });
+      setCompleted({ key: cacheKey, movies, failedMovieIds });
     }
 
     loadMovies();
@@ -110,13 +128,13 @@ export function useMoviesByIds(movieIds: number[]): UseMoviesByIdsResult {
     return () => {
       controller.abort();
     };
-  }, [idsKey]);
+  }, [idsKey, mode, cacheKey]);
 
   if (idsKey === "") {
     return { movies: [], isLoading: false, hasError: false, failedMovieIds: [] };
   }
 
-  const isLoading = completed.key !== idsKey;
+  const isLoading = completed.key !== cacheKey;
 
   if (isLoading) {
     return { movies: [], isLoading: true, hasError: false, failedMovieIds: [] };

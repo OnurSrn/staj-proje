@@ -3,25 +3,40 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSettings } from "@/components/SettingsProvider";
+import { t } from "@/lib/i18n";
+
+type NavLinkKey =
+  | "movies"
+  | "search"
+  | "whatToWatch"
+  | "collections"
+  | "favorites"
+  | "watchlist"
+  | "activity"
+  | "ratings"
+  | "profile"
+  | "about";
 
 type NavLink = {
   href: string;
-  label: string;
+  key: NavLinkKey;
 };
 
 const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Movies" },
-  { href: "/search", label: "Search" },
-  { href: "/what-to-watch", label: "What to Watch" },
-  { href: "/collections", label: "Collections" },
-  { href: "/favorites", label: "Favorites" },
-  { href: "/watchlist", label: "Watchlist" },
-  { href: "/activity", label: "Activity" },
-  { href: "/ratings", label: "Ratings" },
-  { href: "/profile", label: "Profile" },
-  { href: "/about", label: "About" },
+  { href: "/", key: "movies" },
+  { href: "/search", key: "search" },
+  { href: "/what-to-watch", key: "whatToWatch" },
+  { href: "/collections", key: "collections" },
+  { href: "/favorites", key: "favorites" },
+  { href: "/watchlist", key: "watchlist" },
+  { href: "/activity", key: "activity" },
+  { href: "/ratings", key: "ratings" },
+  { href: "/profile", key: "profile" },
+  { href: "/about", key: "about" },
 ];
 
+const SETTINGS_HREF = "/settings";
 const MOBILE_MENU_ID = "navbar-mobile-menu";
 
 // "/" tam eşleşme gerektirir (aksi halde her rota onunla eşleşirdi).
@@ -37,22 +52,30 @@ function isLinkActive(pathname: string, href: string): boolean {
 }
 
 const FOCUS_RING_CLASSES =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function desktopLinkClassName(isActive: boolean): string {
   const base = `whitespace-nowrap border-b-2 pb-1 text-sm transition-colors motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
 
   return isActive
-    ? `${base} border-yellow-400 font-semibold text-yellow-400`
-    : `${base} border-transparent text-neutral-300 hover:text-yellow-400`;
+    ? `${base} border-accent font-semibold text-accent`
+    : `${base} border-transparent text-muted hover:text-accent`;
 }
 
 function mobileLinkClassName(isActive: boolean): string {
   const base = `block rounded-lg px-3 py-3 text-base transition-colors motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
 
   return isActive
-    ? `${base} font-semibold text-yellow-400 underline underline-offset-4`
-    : `${base} text-neutral-300 hover:text-yellow-400`;
+    ? `${base} font-semibold text-accent underline underline-offset-4`
+    : `${base} text-muted hover:text-accent`;
+}
+
+function settingsIconButtonClassName(isActive: boolean): string {
+  const base = `flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-lg transition motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
+
+  return isActive
+    ? `${base} border-accent text-accent`
+    : `${base} border-border text-muted hover:border-accent hover:text-accent`;
 }
 
 function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
@@ -81,6 +104,8 @@ function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { settings } = useSettings();
+  const language = settings.language;
   const [isOpen, setIsOpen] = useState(false);
   const [previousPathname, setPreviousPathname] = useState(pathname);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -128,16 +153,19 @@ export default function Navbar() {
     };
   }, [isOpen]);
 
+  const isSettingsActive = isLinkActive(pathname, SETTINGS_HREF);
+  const settingsLabel = t(language, "navbar", "settings");
+
   return (
     <header
       ref={headerRef}
-      className="border-b border-neutral-800 bg-neutral-950"
+      className="border-b border-border bg-background"
     >
       <nav className="mx-auto max-w-7xl px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/"
-            className={`shrink-0 text-2xl font-bold text-yellow-400 transition hover:text-yellow-300 ${FOCUS_RING_CLASSES}`}
+            className={`shrink-0 text-2xl font-bold text-accent transition hover:opacity-90 ${FOCUS_RING_CLASSES}`}
           >
             CineScope
           </Link>
@@ -153,28 +181,47 @@ export default function Navbar() {
                   aria-current={isActive ? "page" : undefined}
                   className={desktopLinkClassName(isActive)}
                 >
-                  {link.label}
+                  {t(language, "navbar", link.key)}
                 </Link>
               );
             })}
           </div>
 
-          <button
-            ref={toggleButtonRef}
-            type="button"
-            aria-label={isOpen ? "Menüyü kapat" : "Menüyü aç"}
-            aria-expanded={isOpen}
-            aria-controls={MOBILE_MENU_ID}
-            onClick={() => setIsOpen((previous) => !previous)}
-            className={`flex h-11 w-11 items-center justify-center rounded-lg text-neutral-200 transition hover:text-yellow-400 xl:hidden ${FOCUS_RING_CLASSES}`}
-          >
-            <HamburgerIcon isOpen={isOpen} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Ayarlara kompakt, ana nav listesini büyütmeyen bir erişim —
+                masaüstünde ayrı bir dişli ikonu, mobilde menü içindeki son
+                madde (bkz. aşağı). */}
+            <Link
+              href={SETTINGS_HREF}
+              aria-label={settingsLabel}
+              title={settingsLabel}
+              aria-current={isSettingsActive ? "page" : undefined}
+              className={`hidden xl:flex ${settingsIconButtonClassName(isSettingsActive)}`}
+            >
+              <span aria-hidden="true">⚙</span>
+            </Link>
+
+            <button
+              ref={toggleButtonRef}
+              type="button"
+              aria-label={
+                isOpen
+                  ? t(language, "navbar", "closeMenu")
+                  : t(language, "navbar", "openMenu")
+              }
+              aria-expanded={isOpen}
+              aria-controls={MOBILE_MENU_ID}
+              onClick={() => setIsOpen((previous) => !previous)}
+              className={`flex h-11 w-11 items-center justify-center rounded-lg text-foreground transition hover:text-accent xl:hidden ${FOCUS_RING_CLASSES}`}
+            >
+              <HamburgerIcon isOpen={isOpen} />
+            </button>
+          </div>
         </div>
 
         <div
           id={MOBILE_MENU_ID}
-          className={`mt-4 border-t border-neutral-800 pt-4 xl:hidden ${
+          className={`mt-4 border-t border-border pt-4 xl:hidden ${
             isOpen ? "block" : "hidden"
           }`}
         >
@@ -190,10 +237,20 @@ export default function Navbar() {
                   onClick={() => setIsOpen(false)}
                   className={mobileLinkClassName(isActive)}
                 >
-                  {link.label}
+                  {t(language, "navbar", link.key)}
                 </Link>
               );
             })}
+
+            <Link
+              href={SETTINGS_HREF}
+              aria-current={isSettingsActive ? "page" : undefined}
+              onClick={() => setIsOpen(false)}
+              className={`mt-1 border-t border-border pt-2 ${mobileLinkClassName(isSettingsActive)}`}
+            >
+              <span aria-hidden="true">⚙ </span>
+              {settingsLabel}
+            </Link>
           </div>
         </div>
       </nav>

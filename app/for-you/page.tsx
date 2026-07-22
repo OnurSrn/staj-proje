@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import ForYouDashboard from "@/components/ForYouDashboard";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 
 export const metadata: Metadata = {
   title: "Sana Özel",
@@ -7,26 +9,26 @@ export const metadata: Metadata = {
     "Kullanıcının puanları ve tercihleriyle oluşturulan kişisel film önerileri.",
 };
 
-export default function ForYouPage() {
+export default async function ForYouPage() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          Kişisel Öneriler
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "forYou", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Sana Özel</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          {t(language, "forYou", "title")}
+        </h1>
 
-        <p className="mt-4 max-w-2xl text-neutral-400">
-          Öneriler, verdiğin puanlar, izleme durumların ve açık
-          tercihlerinden hesaplanır.
+        <p className="mt-4 max-w-2xl text-muted">
+          {t(language, "forYou", "subtitle")}
         </p>
 
-        <p className="mt-3 max-w-2xl text-xs text-neutral-600">
-          Zevk profilin bu cihazdaki yerel verilerden hesaplanır. Öneri
-          adayı ararken yalnızca birkaç kısa filtre (ör. en sevdiğin
-          birkaç tür/kişi id&apos;si) sunucuya gönderilir; puanların,
-          izleme geçmişin veya kimliğin hiçbir zaman kaydedilmez.
+        <p className="mt-3 max-w-2xl text-xs text-muted">
+          {t(language, "forYou", "privacyNote")}
         </p>
 
         <ForYouDashboard />

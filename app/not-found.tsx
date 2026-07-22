@@ -1,33 +1,38 @@
 import Link from "next/link";
+import { t } from "@/lib/i18n";
+import { getServerLanguage } from "@/lib/serverLanguage";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const language = await getServerLanguage();
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-6 text-white">
-      <section className="max-w-lg rounded-2xl border border-neutral-800 bg-neutral-900 p-8 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-          404
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+      <section className="max-w-lg rounded-2xl border border-border bg-surface p-8 text-center">
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          {t(language, "notFound", "eyebrow")}
         </p>
 
-        <h1 className="mt-4 text-3xl font-bold">Sayfa bulunamadı</h1>
+        <h1 className="mt-4 text-3xl font-bold">
+          {t(language, "notFound", "title")}
+        </h1>
 
-        <p className="mt-4 text-neutral-400">
-          Aradığın film, kişi veya sayfa mevcut değil ya da kaldırılmış
-          olabilir.
+        <p className="mt-4 text-muted">
+          {t(language, "notFound", "description")}
         </p>
 
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Link
             href="/"
-            className="rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-black transition hover:bg-yellow-300"
+            className="rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
           >
-            Ana Sayfaya Dön
+            {t(language, "notFound", "goHome")}
           </Link>
 
           <Link
             href="/search"
-            className="rounded-lg border border-neutral-700 px-6 py-3 font-semibold text-white transition hover:border-yellow-400 hover:text-yellow-400"
+            className="rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
           >
-            Film Ara
+            {t(language, "common", "searchMoviesCta")}
           </Link>
         </div>
       </section>

@@ -8,8 +8,11 @@ import {
   useFavoriteCompanies,
   useFavoritePeople,
 } from "@/components/PreferenceProvider";
+import { useSettings } from "@/components/SettingsProvider";
 import { useMovieRatings, useSavedMovies } from "@/components/SavedMoviesProvider";
+import { buildGenreCountSummary, t } from "@/lib/i18n";
 import TasteProfileSection from "@/components/TasteProfileSection";
+import type { AppLanguage } from "@/lib/settings";
 
 type GenreStat = {
   id: number;
@@ -20,30 +23,33 @@ type GenreStat = {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+      <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
     </div>
   );
 }
 
-function getTasteSummary(average: number | null): string | null {
+function getTasteSummary(
+  language: AppLanguage,
+  average: number | null
+): string | null {
   if (average === null) {
     return null;
   }
 
   if (average >= 8) {
-    return "Seçici ama sevdiğinde yüksek puan veriyorsun.";
+    return t(language, "profile", "tasteSummaryHigh");
   }
 
   if (average >= 6) {
-    return "Dengeli bir puanlama eğilimin var.";
+    return t(language, "profile", "tasteSummaryMedium");
   }
 
-  return "Filmleri daha eleştirel değerlendiriyorsun.";
+  return t(language, "profile", "tasteSummaryLow");
 }
 
 function DashboardSkeleton() {
@@ -53,10 +59,10 @@ function DashboardSkeleton() {
         {Array.from({ length: 6 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-xl border border-neutral-800 bg-neutral-900 p-4"
+            className="rounded-xl border border-border bg-surface p-4"
           >
-            <div className="h-3 w-20 animate-pulse rounded bg-neutral-800" />
-            <div className="mt-3 h-7 w-16 animate-pulse rounded bg-neutral-800" />
+            <div className="h-3 w-20 animate-pulse rounded bg-surface-elevated" />
+            <div className="mt-3 h-7 w-16 animate-pulse rounded bg-surface-elevated" />
           </div>
         ))}
       </div>
@@ -65,13 +71,13 @@ function DashboardSkeleton() {
         {Array.from({ length: 5 }).map((_, index) => (
           <div
             key={index}
-            className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+            className="overflow-hidden rounded-xl border border-border bg-surface"
           >
-            <div className="aspect-[2/3] animate-pulse bg-neutral-800" />
+            <div className="aspect-[2/3] animate-pulse bg-surface-elevated" />
 
             <div className="space-y-2 p-3">
-              <div className="h-4 animate-pulse rounded bg-neutral-800" />
-              <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-800" />
+              <div className="h-4 animate-pulse rounded bg-surface-elevated" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-surface-elevated" />
             </div>
           </div>
         ))}
@@ -85,6 +91,8 @@ export default function ProfileDashboard() {
   const { ratings, isLoaded, getMovieRating } = useMovieRatings();
   const { favoritePeople } = useFavoritePeople();
   const { favoriteCompanies } = useFavoriteCompanies();
+  const { settings } = useSettings();
+  const language = settings.language;
 
   const favoriteActorCount = useMemo(
     () => favoritePeople.filter((person) => person.role === "actor").length,
@@ -111,7 +119,7 @@ export default function ProfileDashboard() {
       : null;
   const highest = totalRated > 0 ? Math.max(...ratingValues) : null;
   const lowest = totalRated > 0 ? Math.min(...ratingValues) : null;
-  const tasteSummary = getTasteSummary(average);
+  const tasteSummary = getTasteSummary(language, average);
 
   const topGenres = useMemo(() => {
     const genreStats = new Map<number, GenreStat>();
@@ -162,10 +170,10 @@ export default function ProfileDashboard() {
           return ratingB - ratingA;
         }
 
-        return a.title.localeCompare(b.title, "tr");
+        return a.title.localeCompare(b.title, language === "tr" ? "tr" : "en");
       })
       .slice(0, 5);
-  }, [movies, getMovieRating]);
+  }, [movies, getMovieRating, language]);
 
   if (!isLoaded) {
     return <DashboardSkeleton />;
@@ -176,70 +184,77 @@ export default function ProfileDashboard() {
       <section>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <StatTile
-            label="Favori Film"
+            label={t(language, "profile", "favoriteMovies")}
             value={favoriteIds.length.toString()}
           />
           <StatTile
-            label="Watchlist Film"
+            label={t(language, "profile", "watchlistMovies")}
             value={watchlistIds.length.toString()}
           />
           <StatTile
-            label="Puanlanan Film"
+            label={t(language, "profile", "ratedMovies")}
             value={totalRated.toString()}
           />
           <StatTile
-            label="Ortalama Puan"
+            label={t(language, "ratings", "averageRating")}
             value={average !== null ? `${average.toFixed(1)} / 10` : "-"}
           />
           <StatTile
-            label="En Yüksek Puan"
+            label={t(language, "profile", "highestRating")}
             value={highest !== null ? `${highest} / 10` : "-"}
           />
           <StatTile
-            label="En Düşük Puan"
+            label={t(language, "profile", "lowestRating")}
             value={lowest !== null ? `${lowest} / 10` : "-"}
           />
         </div>
       </section>
 
-      <section className="mt-8 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+      <section className="mt-8 rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-neutral-300">
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted">
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {favoriteActorCount}
               </span>{" "}
-              favori oyuncu
+              {t(language, "profile", "favoriteActorsSuffix")}
             </span>
 
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {favoriteDirectorCount}
               </span>{" "}
-              favori yönetmen
+              {t(language, "profile", "favoriteDirectorsSuffix")}
             </span>
 
             <span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {favoriteCompanies.length}
               </span>{" "}
-              favori stüdyo
+              {t(language, "profile", "favoriteStudiosSuffix")}
             </span>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Link
               href="/for-you"
-              className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Sana Özel Öneriler →
+              {t(language, "profile", "personalRecommendationsCta")}
             </Link>
 
             <Link
               href="/preferences"
-              className="rounded-lg border border-yellow-400/60 px-4 py-2 text-sm font-semibold text-yellow-400 transition hover:bg-yellow-400/10"
+              className="rounded-lg border border-accent/60 px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent/10"
             >
-              Tercihlerini Düzenle →
+              {t(language, "profile", "editPreferencesCta")}
+            </Link>
+
+            <Link
+              href="/settings"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent"
+            >
+              {t(language, "profile", "settingsCta")}
             </Link>
           </div>
         </div>
@@ -248,86 +263,92 @@ export default function ProfileDashboard() {
       <TasteProfileSection />
 
       {tasteSummary && (
-        <section className="mt-8 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-5">
-          <p className="text-sm font-semibold uppercase tracking-widest text-yellow-400">
-            Değerlendirme Eğilimin
+        <section className="mt-8 rounded-xl border border-accent/20 bg-accent/5 p-5">
+          <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+            {t(language, "profile", "ratingTrendHeading")}
           </p>
 
-          <p className="mt-2 text-neutral-200">{tasteSummary}</p>
+          <p className="mt-2 text-foreground">{tasteSummary}</p>
         </section>
       )}
 
       {totalRated === 0 ? (
-        <div className="mt-10 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
+        <div className="mt-10 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
           <h2 className="text-xl font-semibold">
-            Zevk özeti için henüz veri yok
+            {t(language, "profile", "emptyTasteTitle")}
           </h2>
 
-          <p className="mt-3 text-neutral-400">
-            Filmlere puan vermeye başladığında burada tür tercihlerini ve en
-            sevdiğin filmleri görebilirsin.
+          <p className="mt-3 text-muted">
+            {t(language, "profile", "emptyTasteDescription")}
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link
               href="/"
-              className="rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+              className="rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
             >
-              Filmleri Keşfet
+              {t(language, "common", "exploreMovies")}
             </Link>
 
             <Link
               href="/ratings"
-              className="rounded-lg border border-neutral-700 px-5 py-3 font-semibold text-neutral-200 transition hover:border-yellow-400 hover:text-yellow-400"
+              className="rounded-lg border border-border px-5 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
             >
-              Ratings Sayfasına Git
+              {t(language, "profile", "goToRatingsCta")}
             </Link>
           </div>
         </div>
       ) : isLoadingMovies ? (
         <DashboardSkeleton />
       ) : hasError ? (
-        <div className="mt-10 rounded-2xl border border-red-500/40 bg-red-500/10 p-10 text-center">
-          <h2 className="text-xl font-semibold text-red-400">
-            Film bilgileri yüklenemedi
+        <div className="mt-10 rounded-2xl border border-danger/40 bg-danger/10 p-10 text-center">
+          <h2 className="text-xl font-semibold text-danger">
+            {t(language, "ratings", "movieInfoErrorTitle")}
           </h2>
 
-          <p className="mt-3 text-neutral-400">
-            Sayfayı yenileyip tekrar dene.
+          <p className="mt-3 text-muted">
+            {t(language, "common", "loadErrorDescription")}
           </p>
         </div>
       ) : (
         <>
           <section className="mt-10">
-            <h2 className="text-xl font-semibold">En Çok Puanladığın Türler</h2>
+            <h2 className="text-xl font-semibold">
+              {t(language, "profile", "topGenresHeading")}
+            </h2>
 
             {topGenres.length > 0 ? (
               <ul className="mt-4 space-y-2">
                 {topGenres.map((genre) => (
                   <li
                     key={genre.id}
-                    className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3"
+                    className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3"
                   >
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-foreground">
                       {genre.name}
                     </span>
 
-                    <span className="text-sm text-neutral-400">
-                      {genre.count} film · Ortalama{" "}
-                      {(genre.totalScore / genre.count).toFixed(1)} / 10
+                    <span className="text-sm text-muted">
+                      {buildGenreCountSummary(
+                        language,
+                        genre.count,
+                        genre.totalScore / genre.count
+                      )}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-4 text-neutral-400">
-                Tür istatistiği için yeterli veri yok.
+              <p className="mt-4 text-muted">
+                {t(language, "profile", "topGenresEmptyText")}
               </p>
             )}
           </section>
 
           <section className="mt-10">
-            <h2 className="text-xl font-semibold">En Sevdiğin Filmler</h2>
+            <h2 className="text-xl font-semibold">
+              {t(language, "profile", "favoriteMoviesHeading")}
+            </h2>
 
             {favoriteMovies.length > 0 ? (
               <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -340,8 +361,8 @@ export default function ProfileDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-neutral-400">
-                Gösterilecek film bulunamadı.
+              <p className="mt-4 text-muted">
+                {t(language, "profile", "favoriteMoviesEmptyText")}
               </p>
             )}
           </section>

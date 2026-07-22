@@ -4,27 +4,28 @@ import Link from "next/link";
 import MovieCard from "@/components/MovieCard";
 import { useMoviesByIds } from "@/components/hooks/useMoviesByIds";
 import { useSavedMovies } from "@/components/SavedMoviesProvider";
+import { useSettings } from "@/components/SettingsProvider";
+import { buildTotalResultsSummary, t } from "@/lib/i18n";
 import { getPosterUrl } from "@/lib/tmdb";
 
 type SavedMoviesGridProps = {
-  storageKey: string;
-  emptyTitle: string;
-  emptyDescription: string;
-  removeButtonText: string;
+  kind: "favorites" | "watchlist";
 };
 
-export default function SavedMoviesGrid({
-  storageKey,
-  emptyTitle,
-  emptyDescription,
-  removeButtonText,
-}: SavedMoviesGridProps) {
+export default function SavedMoviesGrid({ kind }: SavedMoviesGridProps) {
   const { favoriteIds, watchlistIds, isLoaded, toggleFavorite, toggleWatchlist } =
     useSavedMovies();
+  const { settings } = useSettings();
+  const language = settings.language;
 
-  const isFavoritesList = storageKey === "cinescope-favorites";
+  const isFavoritesList = kind === "favorites";
   const movieIds = isFavoritesList ? favoriteIds : watchlistIds;
   const toggleMovie = isFavoritesList ? toggleFavorite : toggleWatchlist;
+  const removeButtonText = t(
+    language,
+    "movieActions",
+    isFavoritesList ? "removeFavorite" : "removeWatchlist"
+  );
 
   const { movies, isLoading, hasError } = useMoviesByIds(movieIds);
 
@@ -36,13 +37,13 @@ export default function SavedMoviesGrid({
         {Array.from({ length: 5 }).map((_, index) => (
           <div
             key={index}
-            className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+            className="overflow-hidden rounded-xl border border-border bg-surface"
           >
-            <div className="aspect-[2/3] animate-pulse bg-neutral-800" />
+            <div className="aspect-[2/3] animate-pulse bg-surface-elevated" />
 
             <div className="space-y-3 p-4">
-              <div className="h-5 animate-pulse rounded bg-neutral-800" />
-              <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-800" />
+              <div className="h-5 animate-pulse rounded bg-surface-elevated" />
+              <div className="h-4 w-2/3 animate-pulse rounded bg-surface-elevated" />
             </div>
           </div>
         ))}
@@ -52,13 +53,13 @@ export default function SavedMoviesGrid({
 
   if (hasError) {
     return (
-      <div className="mt-10 rounded-2xl border border-red-500/40 bg-red-500/10 p-10 text-center">
-        <h2 className="text-xl font-semibold text-red-400">
-          Filmler yüklenemedi
+      <div className="mt-10 rounded-2xl border border-danger/40 bg-danger/10 p-10 text-center">
+        <h2 className="text-xl font-semibold text-danger">
+          {t(language, "common", "loadErrorTitle")}
         </h2>
 
-        <p className="mt-3 text-neutral-400">
-          Sayfayı yenileyip tekrar dene.
+        <p className="mt-3 text-muted">
+          {t(language, "common", "loadErrorDescription")}
         </p>
       </div>
     );
@@ -66,16 +67,20 @@ export default function SavedMoviesGrid({
 
   if (visibleMovies.length === 0) {
     return (
-      <div className="mt-10 rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-10 text-center">
-        <h2 className="text-xl font-semibold">{emptyTitle}</h2>
+      <div className="mt-10 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
+        <h2 className="text-xl font-semibold">
+          {t(language, kind, "emptyTitle")}
+        </h2>
 
-        <p className="mt-3 text-neutral-400">{emptyDescription}</p>
+        <p className="mt-3 text-muted">
+          {t(language, kind, "emptyDescription")}
+        </p>
 
         <Link
           href="/"
-          className="mt-6 inline-block rounded-lg bg-yellow-400 px-5 py-3 font-semibold text-black transition hover:bg-yellow-300"
+          className="mt-6 inline-block rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
         >
-          Filmleri Keşfet
+          {t(language, "common", "exploreMovies")}
         </Link>
       </div>
     );
@@ -83,8 +88,8 @@ export default function SavedMoviesGrid({
 
   return (
     <>
-      <p className="mt-4 text-sm text-neutral-500">
-        Toplam {visibleMovies.length} film
+      <p className="mt-4 text-sm text-muted">
+        {buildTotalResultsSummary(language, visibleMovies.length, "movies")}
       </p>
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -103,7 +108,7 @@ export default function SavedMoviesGrid({
             <button
               type="button"
               onClick={() => toggleMovie(movie.id)}
-              className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+              className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-danger hover:text-white"
             >
               {removeButtonText}
             </button>
