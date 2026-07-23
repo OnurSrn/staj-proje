@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ProfileDashboard from "@/components/ProfileDashboard";
+import PageShell from "@/components/ui/PageShell";
 import { t } from "@/lib/i18n";
 import { getServerLanguage } from "@/lib/serverLanguage";
 
@@ -14,7 +15,7 @@ export default async function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <PageShell pattern="subtle">
         <p className="text-sm font-semibold uppercase tracking-widest text-accent">
           {t(language, "profile", "eyebrow")}
         </p>
@@ -28,7 +29,7 @@ export default async function ProfilePage() {
         </p>
 
         <ProfileDashboard />
-      </section>
+      </PageShell>
     </main>
   );
 }

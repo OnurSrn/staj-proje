@@ -17,63 +17,110 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-secondary-hover: var(--accent-secondary-hover);
+  --color-accent-secondary-foreground: var(--accent-secondary-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-secondary-soft: var(--accent-secondary-soft);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-input: var(--input);
   --color-ring: var(--ring);
 }
 
-/* Varsayılan (dark) — mevcut hardcoded neutral-950/900/800 + yellow-400
-   görünümünü olduğu gibi korur. app/layout.tsx <html> öğesi
-   data-theme="dark" ile render edilir; inline tema script'i gerektiğinde
-   ilk paint öncesi "light"e çevirir.
-   --muted-foreground, v1'deki --muted (metin rengi) ile bilinçli olarak
-   AYNI değeri taşır — v1'de zaten "muted metin" anlamıyla onlarca yerde
-   kullanılan --muted'in anlamını bu görevde değiştirip geriye dönük
-   kırmak yerine, yeni --muted-foreground token'ı eklenip ikisi eşitlendi. */
+/* ─── CiNeA marka kimliği ────────────────────────────────────────────────
+   Dark = turkuaz ana vurgu + lale/aslanağzı sıcak pembe-kırmızı ikincil,
+   hafif petrol/karbon atmosferli yüzeyler. Light = Kapadokya kumtaşı/
+   sıcak kum-kahve ana vurgu + Antep fıstığı ikincil, sıcak taş/krem
+   yüzeyler (saf beyaz DEĞİL). --accent her iki temada da uygulamanın
+   "gerçek" birincil markasıdır — navbar, butonlar, odak halkaları,
+   rating rozetleri gibi --accent/--accent-secondary kullanan HER YER
+   otomatik olarak bu kimliğe bağlıdır; ayrı dosyalara dokunmaya gerek
+   kalmaz. */
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: #0a0a0a;
-  --surface: #171717;
-  --surface-elevated: #262626;
-  --surface-subtle: #0f0f0f;
+  /* Düz siyah değil — çok hafif petrol/karbon alt tonu (bkz. görev
+     talimatı bölüm 2 "dark yüzeyler düz siyah olmasın"). Fark yalnızca
+     hue'da; parlaklık neredeyse aynı kaldığı için kontrast bozulmaz. */
+  --background: #0a0e0d;
+  --surface: #141b19;
+  --surface-elevated: #202b28;
+  --surface-subtle: #0c1211;
   --foreground: #fafafa;
   --muted: #a3a3a3;
   --muted-foreground: #a3a3a3;
-  --border: #262626;
-  --border-strong: #404040;
-  --accent: #facc15;
-  --accent-hover: #fde047;
-  --accent-foreground: #0a0a0a;
+  --border: #1f2b28;
+  --border-strong: #3a4a46;
+  /* Turkuaz — dark'ın ana vurgusu. Neon cyan değil, yumuşak/premium bir
+     teal (#2dd4bf), neredeyse siyah zeminde net okunur. */
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-foreground: #06201c;
+  /* Lale/aslanağzı — sıcak, çiçeksi bir pembe-kırmızı ikincil vurgu.
+     --danger (#ef4444, turuncuya kayan kırmızı) ile karışmasın diye
+     bilinçli olarak pembeye yaslanan bir ton (rose) seçildi. */
+  --accent-secondary: #fb7185;
+  --accent-secondary-hover: #fda4af;
+  --accent-secondary-foreground: #250910;
   --danger: #ef4444;
   --success: #22c55e;
-  --input: #0a0a0a;
+  --input: #0a0e0d;
   --ring: var(--accent);
+  /* Hero backdrop'un arkasındaki fotoğrafın görünürlüğü — dark'ta daha
+     sinematik/loş kalması için düşük (bkz. app/globals.css alt kısım). */
+  --hero-backdrop-opacity: 0.42;
 }
 
-/* Light — saf beyaz zorunlu değil ama kontrastlı; sarı accent bir ton
-   koyulaştırılarak (amber-700) beyaz zemin üzerinde okunabilir tutuldu
-   (bkz. görev talimatı bölüm 9 "sarı metin açık fonda okunabilir").
-   accent-hover koyu temada bir ton açılır, açık temada bir ton koyulaşır —
-   her iki yönde de "hover = daha vurgulu" hissi tutarlı kalır. */
+/* Light — saf beyaz DEĞİL: sıcak Kapadokya tüfü/kumtaşı zemini. Ana
+   vurgu artık kızıl kiremit değil, doygunluğu düşürülmüş sıcak kum-kahve
+   (caramel-taupe) — kırmızıya değil kahverengiye yaslanır. Kontrast
+   oranları metin/buton kullanımı için ayrıca hesaplanarak korunmuştur. */
 [data-theme="light"] {
   color-scheme: light;
-  --background: #ffffff;
-  --surface: #f5f5f5;
-  --surface-elevated: #e5e5e5;
-  --surface-subtle: #fafafa;
-  --foreground: #171717;
-  --muted: #52525b;
-  --muted-foreground: #52525b;
-  --border: #d4d4d4;
-  --border-strong: #a3a3a3;
-  --accent: #a16207;
-  --accent-hover: #92400e;
-  --accent-foreground: #ffffff;
+  --background: #f6efe1;
+  --surface: #eee2cc;
+  --surface-elevated: #e3d3b5;
+  --surface-subtle: #f1e8d7;
+  --foreground: #2a2117;
+  --muted: #6b5f4e;
+  --muted-foreground: #6b5f4e;
+  --border: #ddc9a6;
+  --border-strong: #b39b70;
+  /* Sandstone/caramel-taupe — light'ın ana vurgusu. #9a3412 (kiremit/
+     kızıl) yerine kırmızı bileşeni azaltılmış, kahverengiye yaslanan bir
+     ton; hem metin hem dolgu kullanımında AA kontrastı sağlar. */
+  --accent: #7a5530;
+  --accent-hover: #5e4123;
+  --accent-foreground: #fdf6ea;
+  /* Antep fıstığı yeşili — yumuşak, doygunluğu düşük ikincil vurgu. */
+  --accent-secondary: #77935a;
+  --accent-secondary-hover: #5c7444;
+  --accent-secondary-foreground: #ffffff;
   --danger: #dc2626;
   --success: #16a34a;
-  --input: #ffffff;
+  /* Form alanları sayfa yüzeyinden biraz daha açık/nötr kalır (native
+     select popup okunabilirliği için) ama saf beyaz değil — aynı sıcak
+     aileden (bkz. görev talimatı bölüm 9). */
+  --input: #faf5e8;
   --ring: var(--accent);
+  /* Light'ta backdrop fotoğrafı daha belirgin kalsın ki sıcak overlay
+     ile birleşince "soluk/çamurlu" görünmesin (bkz. görev talimatı
+     bölüm 6B). */
+  --hero-backdrop-opacity: 0.58;
+}
+
+/* --accent-soft / --accent-secondary-soft, her iki temada da --accent /
+   --accent-secondary'nin kendisinden türetilir (color-mix) — bu yüzden
+   dark/light için ayrı ayrı tanımlanmaz, [data-theme] bloklarının
+   İKİSİNE de uygulanan tek bir kural yeterlidir; aktif temanın rengi
+   neyse ona göre otomatik güncel kalır. */
+[data-theme] {
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-secondary-soft: color-mix(
+    in srgb,
+    var(--accent-secondary) 16%,
+    transparent
+  );
 }
 
 body {
@@ -106,4 +153,260 @@ select option:checked {
 select:disabled,
 select option:disabled {
   color: var(--muted-foreground);
+}
+
+/* ─── Merkezi pattern primitive sistemi ──────────────────────────────────
+   Önceki sürümdeki repeating-linear-gradient tabanlı "kesikli çizgi"
+   yaklaşımı TAMAMEN kaldırıldı — ekran çizilmiş/defter çizgisi hissi
+   veriyordu ve anlamlı bir form oluşturmuyordu. Yerine gerçek geometrik
+   SVG motifleri geldi: light'ta iki dalgalı şeridin birbirine geçmesiyle
+   oluşan baklava/rombik dokulu bir "Selçuklu kurdele" örgüsü, dark'ta tek
+   bir uzun hat-akışı eğrisi + soyut bir lale tomurcuğu + birkaç ebru
+   damlası. Geometri iki `data:image/svg+xml` maskesi olarak TEK bir
+   yerde tanımlanır (--pattern-mask, temaya göre değişir); renk ise SVG
+   içine gömülmez — maskenin ALTINDAKİ `background-image` gradyanı
+   --pattern-primary/--pattern-secondary token'larından gelir. Böylece
+   "geometri" ve "renk" ayrı eksenlerdir, component'ler yalnızca TEK bir
+   tema-duyarlı ".pattern-brand" class'ı + bir yoğunluk class'ı
+   (.pattern-subtle/.pattern-medium/.pattern-hero/.pattern-none) kullanır.
+
+   SVG'ler maskeleme için BEYAZ (white) şekiller içerir — CSS mask'in
+   varsayılan luminance modunda beyaz=tam görünür, saydam=gizli demektir;
+   bu yüzden SVG'nin kendi rengi önemsizdir, yalnızca şekil/opaklığı
+   maskenin gücünü belirler. */
+:root {
+  --pattern-opacity-subtle: 0.07;
+  --pattern-opacity-medium: 0.11;
+  --pattern-opacity-hero: 0.18;
+  --pattern-scale: 1;
+}
+
+[data-theme] {
+  --pattern-primary: var(--accent);
+  --pattern-secondary: var(--accent-secondary);
+}
+
+/* Light: iki Q-eğrili (quadratic bezier) şerit aynı beş noktadan geçip
+   ters yönde sapıyor — kesişim noktalarında küçük baklava (rombik)
+   düğümler var. Zikzak/düz çapraz ızgara DEĞİL; yumuşak, kesintisiz,
+   yatay akan bir kurdele örgüsü. 160x80 tile, yatayda tekrar eder. */
+[data-theme="light"] {
+  --pattern-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='80' viewBox='0 0 160 80'%3E%3Cpath d='M0,40 Q20,12 40,40 Q60,68 80,40 Q100,12 120,40 Q140,68 160,40' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M0,40 Q20,68 40,40 Q60,12 80,40 Q100,68 120,40 Q140,12 160,40' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3Cg fill='white'%3E%3Cpath d='M0,36 L4,40 L0,44 L-4,40 Z'/%3E%3Cpath d='M40,36 L44,40 L40,44 L36,40 Z'/%3E%3Cpath d='M80,36 L84,40 L80,44 L76,40 Z'/%3E%3Cpath d='M120,36 L124,40 L120,44 L116,40 Z'/%3E%3Cpath d='M160,36 L164,40 L160,44 L156,40 Z'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-mask-repeat: repeat;
+  --pattern-mask-size: calc(150px * var(--pattern-scale)) auto;
+}
+
+/* Dark: TEK büyük, tekrar etmeyen kompozisyon (480x480) — uzun bir hat
+   akışı eğrisi, daha kısa ikinci bir ebru dalgası, soyut bir lale
+   tomurcuğu silüeti ve iki küçük damla. Duvar kağıdı gibi TEKRARLANMAZ;
+   yüzeye göre yalnızca küçük bir kesiti görünür (mask-size ile). */
+[data-theme="dark"] {
+  --pattern-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'%3E%3Cpath d='M30,450 Q170,410 220,320 T410,80' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' opacity='0.9'/%3E%3Cpath d='M280,440 Q330,400 310,330 T400,210' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' opacity='0.55'/%3E%3Cpath d='M150,60 C120,95 108,145 118,192 C126,224 138,246 148,262 C158,246 171,224 178,192 C188,145 176,95 150,60 Z' fill='white' opacity='0.85'/%3E%3Ccircle cx='95' cy='330' r='5' fill='white' opacity='0.45'/%3E%3Ccircle cx='360' cy='150' r='4' fill='white' opacity='0.4'/%3E%3C/svg%3E");
+  --pattern-mask-repeat: no-repeat;
+  --pattern-mask-size: calc(420px * var(--pattern-scale)) auto;
+}
+
+/* .pattern-brand: tema-duyarlı TEK class — hangi motifin göründüğünü
+   aktif [data-theme] belirler. `isolation: isolate` yerel bir stacking
+   context açar; ::before `z-index:-1` ile bu context İÇİNDE her zaman en
+   altta kalır, pattern hiçbir zaman gerçek içeriğin önüne geçemez.
+   `position` BİLEREK burada set edilmez: bu dosya Tailwind'in
+   `utilities` layer'ının DIŞINDadır (unlayered CSS), bu yüzden burada
+   `position: relative` yazılsaydı aynı elemana verilen Tailwind
+   `absolute` sınıfını (ör. HomeHero'daki tam-kaplayan pattern katmanı)
+   ezerdi. Bunun yerine her tüketici kendi `relative`/`absolute`
+   class'ını zaten taşır (Navbar/MovieRail: `relative`, HomeHero:
+   `absolute inset-0`) — ::before bu konumlanmış atadan zaten doğru
+   şekilde faydalanır. */
+.pattern-brand {
+  isolation: isolate;
+}
+
+.pattern-brand::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    135deg,
+    var(--pattern-primary),
+    var(--pattern-secondary)
+  );
+  opacity: var(--pattern-opacity, var(--pattern-opacity-subtle));
+  transition: opacity 200ms ease;
+  -webkit-mask-image: var(--pattern-mask);
+  mask-image: var(--pattern-mask);
+  -webkit-mask-repeat: var(--pattern-mask-repeat);
+  mask-repeat: var(--pattern-mask-repeat);
+  -webkit-mask-size: var(--pattern-mask-size);
+  mask-size: var(--pattern-mask-size);
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+/* Yoğunluk rolleri — yalnızca opaklık/ölçek değişir, geometri sabit
+   kalır. Section başlığı gibi etkileşimli yüzeylerde hover'da desen çok
+   az belirginleşir (bkz. görev talimatı bölüm 9). */
+.pattern-subtle {
+  --pattern-opacity: var(--pattern-opacity-subtle);
+}
+
+.pattern-medium {
+  --pattern-opacity: var(--pattern-opacity-medium);
+  --pattern-scale: 1.3;
+}
+
+/* Rail header'da (.pattern-medium) motif tüm panel genişliğine eşit
+   yayılan bir "duvar kağıdı" gibi durmamalı — yalnızca başlığın solunda,
+   boş alanda bir şerit olarak okunmalı ve "Explore all" / ok kontrollerine
+   yaklaşırken sönmeli. Aynı intersect-mask tekniği (geometri + solma
+   gradyanı) burada da kullanılır, ama viewport'tan bağımsız her zaman
+   aktiftir (hero'daki gibi yalnızca lg+ değil). Kural bilerek her zaman
+   doğru olan bir "@media not print" sarmalayıcısı İÇİNE alınır — üst
+   seviyede (media sarmalayıcısız) tanımlanan, ".pattern-brand::before"i
+   TAKİP EDEN bir ".pattern-medium::before" kuralı, bu projenin
+   Turbopack/lightningcss derleme adımında derlenmiş CSS çıktısından
+   sessizce düşüyordu (üretilen dosyada satırı hiç yoktu); aynı kural bir
+   @media bloğunun içine alınınca güvenilir biçimde korunuyor. */
+@media not print {
+  .pattern-medium::before {
+    -webkit-mask-image: var(--pattern-mask),
+      linear-gradient(to right, #000 0%, #000 38%, transparent 68%);
+    mask-image: var(--pattern-mask),
+      linear-gradient(to right, #000 0%, #000 38%, transparent 68%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    -webkit-mask-repeat: var(--pattern-mask-repeat), no-repeat;
+    mask-repeat: var(--pattern-mask-repeat), no-repeat;
+    -webkit-mask-size: var(--pattern-mask-size), 100% 100%;
+    mask-size: var(--pattern-mask-size), 100% 100%;
+    -webkit-mask-position: center, left top;
+    mask-position: center, left top;
+  }
+}
+
+.pattern-hero {
+  --pattern-opacity: var(--pattern-opacity-hero);
+  --pattern-scale: 1.7;
+}
+
+.pattern-none {
+  --pattern-opacity: 0;
+}
+
+.pattern-brand:hover::before {
+  opacity: calc(var(--pattern-opacity, var(--pattern-opacity-subtle)) * 1.5);
+}
+
+/* Hero'da pattern yalnızca metin tarafında görünür, poster tarafına
+   (sağ) yaklaşınca söner — iki mask katmanı `intersect` ile kesiştirilir:
+   biri geometriyi, diğeri soldan-sağa solma gradyanını taşır. Yalnızca
+   büyük ekranda (poster sağda otururken) devreye girer; mobilde poster
+   üstte olduğu için tam yüzeyde eşit kalır. */
+@media (min-width: 1024px) {
+  .pattern-hero::before {
+    -webkit-mask-image: var(--pattern-mask),
+      linear-gradient(to right, black 0%, black 42%, transparent 78%);
+    mask-image: var(--pattern-mask),
+      linear-gradient(to right, black 0%, black 42%, transparent 78%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    -webkit-mask-repeat: var(--pattern-mask-repeat), no-repeat;
+    mask-repeat: var(--pattern-mask-repeat), no-repeat;
+    -webkit-mask-size: var(--pattern-mask-size), 100% 100%;
+    mask-size: var(--pattern-mask-size), 100% 100%;
+    -webkit-mask-position: center, left top;
+    mask-position: center, left top;
+  }
+}
+
+/* Rail'in yatay scrollbar'ı — yalnızca ".rail-scroll" sınıfını taşıyan
+   elemanı etkiler, global scrollbar'a dokunmaz. --accent artık her iki
+   temada da "gerçek" birincil renk olduğu için gradient doğrudan onu
+   kullanır; son %30'da --accent-secondary'ye geçilerek ikincil vurgu
+   hafifçe sezdirilir. Firefox "scrollbar-color" gradient desteklemediğinden
+   tek renk (--accent) kullanır. */
+.rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  /* Rail sonuna yaklaşırken sağ kenarda yumuşak bir solma — son kartın
+     aniden kesilmiş değil, "devam ediyormuş" hissi vermesi için. Sol
+     kenarda solma yok, çünkü rail'in başında kesilecek içerik yok. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 94%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to right, black 0%, black 94%, transparent 100%);
+}
+
+.rail-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    90deg,
+    var(--accent) 70%,
+    var(--accent-secondary) 100%
+  );
+  border-radius: 9999px;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    90deg,
+    var(--accent-hover) 70%,
+    var(--accent-secondary) 100%
+  );
+}
+
+/* HomeHero carousel dot'larının pasif (aktif olmayan) hali, temaya göre
+   marka geometrisini çok küçük ölçekte hatırlatan bir şekle bürünür —
+   aktif dot her iki temada da nötr bir hap (pill) şekli olarak kalır,
+   yalnızca pasif dot'lar bu ince motif imasını taşır. */
+[data-theme="light"] .carousel-dot {
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+[data-theme="dark"] .carousel-dot {
+  border-radius: 0 50% 50% 50%;
+  transform: rotate(-45deg);
+}
+
+/* HomeHero carousel'inin metin bloğu film değişiminde bu keyframe ile
+   giriş yapar — yalnızca opacity/translate, "hafif" bir hareket.
+   prefers-reduced-motion altında aşağıdaki genel kural bunu da anlık hale
+   getirir. */
+@keyframes hero-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover/focus tabanlı hafif hareket efektleri (rail kartları, rail
+   kontrolleri, hero geçişleri) bu tercih altında anlık hale gelir. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

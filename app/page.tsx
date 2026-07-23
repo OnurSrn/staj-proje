@@ -1,307 +1,144 @@
-import Link from "next/link";
-import MovieCard from "@/components/MovieCard";
-import MovieFilters from "@/components/MovieFilters";
-import { buildPageSummary, buildTotalResultsSummary, t } from "@/lib/i18n";
+import HomeHero from "@/components/home/HomeHero";
+import MovieRail from "@/components/home/MovieRail";
+import PageShell from "@/components/ui/PageShell";
+import { t } from "@/lib/i18n";
 import { getServerLanguage } from "@/lib/serverLanguage";
-import {
-  discoverMovies,
-  getMovieGenres,
-  getMoviesByCategory,
-  getPosterUrl,
-  type MovieCategory,
-  type MovieSort,
-} from "@/lib/tmdb";
-import type { AppLanguage } from "@/lib/settings";
+import { getMovieDetails, getMoviesByCategory, type TmdbMovie } from "@/lib/tmdb";
 
-type HomePageProps = {
-  searchParams: Promise<{
-    category?: string;
-    genre?: string;
-    sort?: string;
-    page?: string;
-  }>;
-};
+// Popular ile Now Playing ilk kartlarda mümkün olduğunca farklı olsun
+// (bkz. görev talimatı bölüm 1) — yeni bir istek atmadan, zaten çekilmiş
+// iki liste üzerinde saf bir yeniden sıralama yapılır: Popular'da
+// bulunmayan Now Playing filmleri öne alınır, yalnızca sonuç yetersiz
+// kalırsa (öne alınacak tekil film azsa) ortak filmler sona eklenir.
+// Girdi listeleri aynıysa çıktı her zaman aynıdır (deterministik).
+function diversifyNowPlaying(
+  popularMovies: TmdbMovie[],
+  nowPlayingMovies: TmdbMovie[]
+): TmdbMovie[] {
+  const popularIds = new Set(popularMovies.map((movie) => movie.id));
+  const seenIds = new Set<number>();
+  const uniqueToNowPlaying: TmdbMovie[] = [];
+  const sharedWithPopular: TmdbMovie[] = [];
 
-const allowedCategories: MovieCategory[] = [
-  "popular",
-  "top-rated",
-  "now-playing",
-  "upcoming",
-];
+  for (const movie of nowPlayingMovies) {
+    if (seenIds.has(movie.id)) {
+      continue;
+    }
 
-const allowedSortValues: MovieSort[] = [
-  "popularity.desc",
-  "vote_average.desc",
-  "primary_release_date.desc",
-];
+    seenIds.add(movie.id);
 
-function isMovieCategory(value: string): value is MovieCategory {
-  return allowedCategories.includes(value as MovieCategory);
-}
-
-function isMovieSort(value: string): value is MovieSort {
-  return allowedSortValues.includes(value as MovieSort);
-}
-
-function parsePage(value: string | undefined): number {
-  const parsedPage = Number(value);
-
-  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
-    return 1;
+    if (popularIds.has(movie.id)) {
+      sharedWithPopular.push(movie);
+    } else {
+      uniqueToNowPlaying.push(movie);
+    }
   }
 
-  return Math.min(parsedPage, 500);
+  return [...uniqueToNowPlaying, ...sharedWithPopular];
 }
 
-function parseGenre(value: string | undefined): number {
-  const parsedGenre = Number(value);
+const MIN_HERO_VOTE_COUNT = 300;
+const HERO_CANDIDATE_COUNT = 5;
 
-  if (!Number.isInteger(parsedGenre) || parsedGenre < 1) {
-    return 0;
+// Hero, tek film yerine küçük bir aday havuzundan deterministik olarak
+// seçilmiş 4-5 film gösterir (bkz. görev talimatı bölüm 3). Yeni bir TMDB
+// isteği açmadan, zaten çekilmiş Popular + Now Playing listeleri
+// birleştirilip: backdrop/poster'ı olmayanlar elenir, aynı film iki
+// listede birden varsa tekilleştirilir (ilk görülen — Popular önce
+// taranır — kazanır), yeterli oy sayısına sahip "kaliteli" adaylar öne
+// alınır. Girdi listeleri aynıysa çıktı her zaman aynıdır.
+function selectHeroCandidates(
+  popularMovies: TmdbMovie[],
+  nowPlayingMovies: TmdbMovie[]
+): TmdbMovie[] {
+  const seenIds = new Set<number>();
+  const strong: TmdbMovie[] = [];
+  const fallback: TmdbMovie[] = [];
+
+  for (const movie of [...popularMovies, ...nowPlayingMovies]) {
+    if (seenIds.has(movie.id)) {
+      continue;
+    }
+
+    if (movie.backdrop_path === null || movie.poster_path === null) {
+      continue;
+    }
+
+    seenIds.add(movie.id);
+
+    if (movie.vote_count >= MIN_HERO_VOTE_COUNT) {
+      strong.push(movie);
+    } else {
+      fallback.push(movie);
+    }
   }
 
-  return parsedGenre;
+  return [...strong, ...fallback].slice(0, HERO_CANDIDATE_COUNT);
 }
 
-function getCategoryLabel(language: AppLanguage, category: MovieCategory): string {
-  return t(language, "categories", category);
-}
+export default async function Home() {
+  const [popular, nowPlaying, topRated, upcoming, language] =
+    await Promise.all([
+      getMoviesByCategory("popular", 1),
+      getMoviesByCategory("now-playing", 1),
+      getMoviesByCategory("top-rated", 1),
+      getMoviesByCategory("upcoming", 1),
+      getServerLanguage(),
+    ]);
 
-function getSortLabel(language: AppLanguage, sort: MovieSort): string {
-  return t(language, "sorts", sort);
-}
-
-export default async function Home({
-  searchParams,
-}: HomePageProps) {
-  const params = await searchParams;
-  const [genres, language] = await Promise.all([
-    getMovieGenres(),
-    getServerLanguage(),
-  ]);
-
-  const category: MovieCategory =
-    params.category && isMovieCategory(params.category)
-      ? params.category
-      : "popular";
-
-  const requestedGenre = parseGenre(params.genre);
-
-  const selectedGenre = genres.some(
-    (genre) => genre.id === requestedGenre
-  )
-    ? requestedGenre
-    : 0;
-
-  const selectedSort: MovieSort =
-    params.sort && isMovieSort(params.sort)
-      ? params.sort
-      : "popularity.desc";
-
-  const requestedPage = parsePage(params.page);
-
-  const isFilterMode =
-    selectedGenre > 0 ||
-    (params.sort !== undefined && isMovieSort(params.sort));
-
-  const movieData = isFilterMode
-    ? await discoverMovies(
-        selectedGenre,
-        selectedSort,
-        requestedPage
-      )
-    : await getMoviesByCategory(
-        category,
-        requestedPage
-      );
-
-  const currentPage = movieData.page || 1;
-  const totalPages = Math.max(
-    1,
-    Math.min(movieData.total_pages || 1, 500)
+  const heroCandidates = selectHeroCandidates(popular.results, nowPlaying.results);
+  const heroMovies = await Promise.all(
+    heroCandidates.map((candidate) => getMovieDetails(String(candidate.id)))
   );
 
-  const selectedGenreName =
-    genres.find((genre) => genre.id === selectedGenre)?.name ??
-    t(language, "home", "allGenres");
-
-  const paginationParams = isFilterMode
-    ? `genre=${selectedGenre}&sort=${selectedSort}`
-    : `category=${category}`;
+  const exploreAllCta = t(language, "home", "exploreAllCta");
+  const diversifiedNowPlaying = diversifyNowPlaying(
+    popular.results,
+    nowPlaying.results
+  );
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6">
-        <section className="py-14 sm:py-20">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-accent">
-            {t(language, "home", "eyebrow")}
-          </p>
+      <PageShell>
+        {heroMovies.length > 0 && (
+          <HomeHero movies={heroMovies} language={language} />
+        )}
 
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
-            {t(language, "home", "title")}
-          </h1>
+        <MovieRail
+          className="mt-14"
+          title={t(language, "categories", "popular")}
+          movies={popular.results}
+          href="/search"
+          actionLabel={exploreAllCta}
+        />
 
-          <p className="mt-6 max-w-2xl text-lg text-muted">
-            {t(language, "home", "subtitle")}
-          </p>
+        <MovieRail
+          className="mt-20"
+          tone="secondary"
+          title={t(language, "categories", "now-playing")}
+          description={t(language, "home", "nowPlayingDescription")}
+          movies={diversifiedNowPlaying}
+          href="/search"
+          actionLabel={exploreAllCta}
+        />
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href="#movies"
-              className="rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
-            >
-              {t(language, "common", "exploreMovies")}
-            </a>
+        <MovieRail
+          className="mt-14"
+          title={t(language, "categories", "top-rated")}
+          movies={topRated.results}
+          href="/search"
+          actionLabel={exploreAllCta}
+        />
 
-            <Link
-              href="/search"
-              className="rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
-            >
-              {t(language, "navbar", "search")}
-            </Link>
-          </div>
-        </section>
-
-        <section id="movies" className="scroll-mt-24 pb-20">
-          <div className="mb-7">
-            <p className="text-sm font-semibold uppercase tracking-widest text-accent">
-              {t(language, "home", "browseEyebrow")}
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold">
-              {isFilterMode
-                ? t(language, "home", "filteredMoviesTitle")
-                : `${getCategoryLabel(language, category)} ${t(language, "home", "categoryMoviesSuffix")}`}
-            </h2>
-
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-              <span>{buildPageSummary(language, currentPage, totalPages)}</span>
-
-              <span>
-                {buildTotalResultsSummary(language, movieData.total_results)}
-              </span>
-            </div>
-          </div>
-
-          <div className="mb-7 flex flex-wrap gap-3">
-            {allowedCategories.map((categoryKey) => (
-              <Link
-                key={categoryKey}
-                href={`/?category=${categoryKey}&page=1#movies`}
-                className={
-                  !isFilterMode && categoryKey === category
-                    ? "rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground"
-                    : "rounded-lg border border-border bg-surface px-5 py-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent"
-                }
-              >
-                {getCategoryLabel(language, categoryKey)}
-              </Link>
-            ))}
-          </div>
-
-          <MovieFilters
-            genres={genres}
-            selectedGenre={selectedGenre}
-            selectedSort={selectedSort}
-            language={language}
-          />
-
-          {isFilterMode && (
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-accent/20 bg-accent/5 p-4">
-              <div>
-                <p className="text-sm font-semibold text-accent">
-                  {t(language, "home", "activeFilters")}
-                </p>
-
-                <p className="mt-1 text-sm text-foreground">
-                  {t(language, "home", "genreLabel")} {selectedGenreName} ·{" "}
-                  {t(language, "home", "sortLabel")}{" "}
-                  {getSortLabel(language, selectedSort)}
-                </p>
-              </div>
-
-              <Link
-                href="/?category=popular&page=1#movies"
-                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent"
-              >
-                {t(language, "common", "clearFilters")}
-              </Link>
-            </div>
-          )}
-
-          {movieData.results.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {movieData.results.map((movie) => (
-                <MovieCard
-                  key={movie.id}
-                  id={movie.id}
-                  title={movie.title}
-                  year={movie.release_date?.slice(0, 4) ?? ""}
-                  rating={movie.vote_average}
-                  voteCount={movie.vote_count}
-                  overview={movie.overview}
-                  posterUrl={getPosterUrl(movie.poster_path)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
-              <h3 className="text-xl font-semibold">
-                {t(language, "home", "noResultsTitle")}
-              </h3>
-
-              <p className="mt-3 text-muted">
-                {t(language, "home", "noResultsDescription")}
-              </p>
-
-              <Link
-                href="/?category=popular&page=1#movies"
-                className="mt-6 inline-block rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
-              >
-                {t(language, "common", "clearFilters")}
-              </Link>
-            </div>
-          )}
-
-          {movieData.results.length > 0 && (
-            <nav className="mt-12 flex flex-wrap items-center justify-center gap-4">
-              {currentPage > 1 ? (
-                <Link
-                  href={`/?${paginationParams}&page=${
-                    currentPage - 1
-                  }#movies`}
-                  className="rounded-lg border border-border px-5 py-3 font-semibold transition hover:border-accent hover:text-accent"
-                >
-                  {t(language, "common", "previous")}
-                </Link>
-              ) : (
-                <span className="cursor-not-allowed rounded-lg border border-border px-5 py-3 font-semibold text-muted">
-                  {t(language, "common", "previous")}
-                </span>
-              )}
-
-              <span className="rounded-lg bg-surface px-5 py-3 text-sm text-muted">
-                {currentPage} / {totalPages}
-              </span>
-
-              {currentPage < totalPages ? (
-                <Link
-                  href={`/?${paginationParams}&page=${
-                    currentPage + 1
-                  }#movies`}
-                  className="rounded-lg border border-border px-5 py-3 font-semibold transition hover:border-accent hover:text-accent"
-                >
-                  {t(language, "common", "next")}
-                </Link>
-              ) : (
-                <span className="cursor-not-allowed rounded-lg border border-border px-5 py-3 font-semibold text-muted">
-                  {t(language, "common", "next")}
-                </span>
-              )}
-            </nav>
-          )}
-        </section>
-      </section>
+        <MovieRail
+          className="mt-14"
+          tone="secondary"
+          title={t(language, "categories", "upcoming")}
+          movies={upcoming.results}
+          href="/search"
+          actionLabel={exploreAllCta}
+        />
+      </PageShell>
     </main>
   );
 }

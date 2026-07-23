@@ -160,13 +160,13 @@ export type CollectionCandidateOptions = {
   candidateKeywordIds?: number[];
   excludedGenreIds?: number[];
   sortBy: MovieSort;
-  voteCountMin: number;
-  voteAverageMin: number;
-  runtimeMin?: number;
-  runtimeMax?: number;
-  // Öneri motorunun "explicit tercih" havuzu (favori oyuncu/yönetmen/
-  // stüdyo) için — koleksiyon motoru bu alanları hiç kullanmaz, geriye
-  // dönük uyumluluğu bozmaz.
+voteCountMin: number;
+voteAverageMin: number;
+runtimeMin?: number;
+runtimeMax?: number;
+// Öneri motorunun "explicit tercih" havuzu (favori oyuncu/yönetmen/
+// stüdyo) için — koleksiyon motoru bu alanları hiç kullanmaz, geriye
+// dönük uyumluluğu bozmaz.
   castId?: number;
   crewId?: number;
   companyId?: number;

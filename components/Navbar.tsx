@@ -55,11 +55,11 @@ const FOCUS_RING_CLASSES =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function desktopLinkClassName(isActive: boolean): string {
-  const base = `whitespace-nowrap border-b-2 pb-1 text-sm transition-colors motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
+  const base = `whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-all duration-200 motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
 
   return isActive
-    ? `${base} border-accent font-semibold text-accent`
-    : `${base} border-transparent text-muted hover:text-accent`;
+    ? `${base} bg-accent-soft font-semibold text-accent shadow-[inset_0_-2px_0_var(--accent)]`
+    : `${base} text-muted hover:bg-accent-soft/60 hover:text-accent`;
 }
 
 function mobileLinkClassName(isActive: boolean): string {
@@ -71,11 +71,11 @@ function mobileLinkClassName(isActive: boolean): string {
 }
 
 function settingsIconButtonClassName(isActive: boolean): string {
-  const base = `flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-lg transition motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
+  const base = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-lg transition-all duration-200 motion-reduce:transition-none ${FOCUS_RING_CLASSES}`;
 
   return isActive
-    ? `${base} border-accent text-accent`
-    : `${base} border-border text-muted hover:border-accent hover:text-accent`;
+    ? `${base} border-accent bg-accent-soft text-accent shadow-[0_0_12px_-3px_var(--accent)]`
+    : `${base} border-border text-muted hover:border-accent-secondary/60 hover:text-accent hover:shadow-[0_0_12px_-4px_var(--accent-secondary)]`;
 }
 
 function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
@@ -159,13 +159,18 @@ export default function Navbar() {
   return (
     <header
       ref={headerRef}
-      className="border-b border-border bg-background"
+      className="pattern-brand pattern-subtle relative overflow-hidden border-b border-border bg-background/95 backdrop-blur-sm"
     >
-      <nav className="mx-auto max-w-7xl px-6 py-4">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+      />
+
+      <nav className="relative mx-auto max-w-7xl px-6 py-5">
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/"
-            className={`shrink-0 text-2xl font-bold text-accent transition hover:opacity-90 ${FOCUS_RING_CLASSES}`}
+            className={`shrink-0 text-2xl font-bold tracking-tight text-accent transition-opacity hover:opacity-90 sm:text-[1.65rem] ${FOCUS_RING_CLASSES}`}
           >
             CineScope
           </Link>
@@ -212,7 +217,7 @@ export default function Navbar() {
               aria-expanded={isOpen}
               aria-controls={MOBILE_MENU_ID}
               onClick={() => setIsOpen((previous) => !previous)}
-              className={`flex h-11 w-11 items-center justify-center rounded-lg text-foreground transition hover:text-accent xl:hidden ${FOCUS_RING_CLASSES}`}
+              className={`flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors duration-200 motion-reduce:transition-none hover:bg-accent-soft hover:text-accent xl:hidden ${FOCUS_RING_CLASSES}`}
             >
               <HamburgerIcon isOpen={isOpen} />
             </button>

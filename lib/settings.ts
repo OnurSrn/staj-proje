@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 // listesi. TMDB available-regions endpoint'iyle genişletilebilir; bu
 // görevde dış API çağrısı yapılmıyor.
 export const SUPPORTED_REGIONS: AppRegion[] = [
-  { isoCode: "TR", nameTr: "Türkiye", nameEn: "Turkey" },
+  { isoCode: "TR", nameTr: "Türkiye", nameEn: "Türkiye" },
   { isoCode: "US", nameTr: "Amerika Birleşik Devletleri", nameEn: "United States" },
   { isoCode: "GB", nameTr: "Birleşik Krallık", nameEn: "United Kingdom" },
   { isoCode: "DE", nameTr: "Almanya", nameEn: "Germany" },

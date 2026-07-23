@@ -51,7 +51,7 @@ export default function MovieCard({
   return (
     <Link
       href={`/movie/${id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface transition duration-200 hover:-translate-y-1 hover:border-accent/60"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all duration-200 motion-reduce:transition-none hover:-translate-y-1 hover:border-accent/60 hover:shadow-[0_8px_24px_-12px_var(--accent)]"
     >
       <div className="relative aspect-[2/3] overflow-hidden bg-surface-elevated">
         {(favorite || inWatchlist) && (
@@ -76,7 +76,7 @@ export default function MovieCard({
             alt={`${title} poster`}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-            className="object-cover transition duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-300 motion-reduce:transition-none group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted">

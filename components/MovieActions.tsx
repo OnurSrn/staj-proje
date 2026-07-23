@@ -38,8 +38,8 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
         onClick={() => toggleFavorite(movieId)}
         className={
           favorite
-            ? "rounded-lg bg-danger px-6 py-3 font-semibold text-white transition hover:opacity-90"
-            : "rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition hover:bg-accent-hover"
+            ? "rounded-lg bg-danger px-6 py-3 font-semibold text-white transition-all duration-200 motion-reduce:transition-none hover:opacity-90"
+            : "rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition-all duration-200 motion-reduce:transition-none hover:bg-accent-hover hover:shadow-[0_0_16px_-4px_var(--accent)]"
         }
       >
         {favorite
@@ -52,8 +52,8 @@ export default function MovieActions({ movieId }: MovieActionsProps) {
         onClick={() => toggleWatchlist(movieId)}
         className={
           inWatchlist
-            ? "rounded-lg border border-success bg-success/10 px-6 py-3 font-semibold text-success transition hover:bg-success/20"
-            : "rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition hover:border-accent hover:text-accent"
+            ? "rounded-lg border border-success bg-success/10 px-6 py-3 font-semibold text-success transition-colors duration-200 motion-reduce:transition-none hover:bg-success/20"
+            : "rounded-lg border border-border px-6 py-3 font-semibold text-foreground transition-colors duration-200 motion-reduce:transition-none hover:border-accent-secondary hover:text-accent-secondary"
         }
       >
         {inWatchlist

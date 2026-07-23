@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import PageShell from "@/components/ui/PageShell";
 import { t } from "@/lib/i18n";
 import { getServerLanguage } from "@/lib/serverLanguage";
 import {
@@ -40,7 +41,7 @@ export default async function CollectionsPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <PageShell pattern="subtle">
         <p className="text-sm font-semibold uppercase tracking-widest text-accent">
           {t(language, "collections", "eyebrow")}
         </p>
@@ -82,7 +83,7 @@ export default async function CollectionsPage() {
             </div>
           ))}
         </div>
-      </section>
+      </PageShell>
     </main>
   );
 }

@@ -22,12 +22,12 @@ const SAVED_STATUS_DURATION_MS = 2000;
 const DEFAULT_LANGUAGE_FOR_RESET: AppLanguage = "tr";
 
 const OPTION_BUTTON_BASE =
-  "rounded-lg border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 function optionButtonClassName(isActive: boolean): string {
   return isActive
-    ? `${OPTION_BUTTON_BASE} border-accent bg-accent text-accent-foreground`
-    : `${OPTION_BUTTON_BASE} border-border text-foreground hover:border-accent hover:text-accent`;
+    ? `${OPTION_BUTTON_BASE} border-accent bg-accent text-accent-foreground shadow-[0_0_14px_-4px_var(--accent)]`
+    : `${OPTION_BUTTON_BASE} border-border text-foreground hover:border-accent-secondary/60 hover:text-accent`;
 }
 
 function DashboardSkeleton() {
@@ -101,7 +101,7 @@ export default function SettingsDashboard() {
     <div className="mt-10 max-w-2xl space-y-10">
       <section
         aria-label={t(language, "settings", "summaryHeading")}
-        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface-subtle p-4 sm:grid-cols-3"
+        className="grid grid-cols-1 gap-3 rounded-xl border border-accent/15 bg-gradient-to-br from-accent-soft/50 to-surface-subtle p-4 sm:grid-cols-3"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">

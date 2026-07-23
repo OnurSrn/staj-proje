@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
+import EmptyState from "@/components/ui/EmptyState";
+import PageShell from "@/components/ui/PageShell";
 import { buildPageSummary, buildTotalResultsSummary, t } from "@/lib/i18n";
 import { getCollectionBySlug } from "@/lib/cineaCollections";
 import { getCineaCollectionPage } from "@/lib/collectionEngine";
@@ -74,7 +76,7 @@ export default async function CollectionDetailsPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <PageShell>
         <p className="text-sm font-semibold uppercase tracking-widest text-accent">
           {t(language, "collections", "detailEyebrow")}
         </p>
@@ -117,15 +119,11 @@ export default async function CollectionDetailsPage({
             ))}
           </div>
         ) : (
-          <div className="mt-10 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
-            <h3 className="text-xl font-semibold">
-              {t(language, "collections", "noResultsTitle")}
-            </h3>
-
-            <p className="mt-3 text-muted">
-              {t(language, "collections", "noResultsDescription")}
-            </p>
-          </div>
+          <EmptyState
+            className="mt-10"
+            title={t(language, "collections", "noResultsTitle")}
+            description={t(language, "collections", "noResultsDescription")}
+          />
         )}
 
         {movies.length > 0 && (
@@ -161,7 +159,7 @@ export default async function CollectionDetailsPage({
             )}
           </nav>
         )}
-      </section>
+      </PageShell>
     </main>
   );
 }

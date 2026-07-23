@@ -59,6 +59,13 @@ const translations = {
       noResultsTitle: "Bu filtrelerle film bulunamadı",
       noResultsDescription: "Farklı bir tür veya sıralama seçeneği dene.",
       filterCta: "Filtrele",
+      heroDetailsCta: "Detayları Gör",
+      exploreAllCta: "Tümünü Keşfet",
+      railScrollLeft: "Geriye kaydır",
+      railScrollRight: "İleriye kaydır",
+      nowPlayingDescription: "Vizyondaki yeni ve dikkat çeken filmler",
+      heroCarouselLabel: "Öne çıkan filmler",
+      heroEyebrow: "Öne Çıkan",
     },
     categories: {
       popular: "Popüler",
@@ -466,6 +473,13 @@ const translations = {
       noResultsTitle: "No movies found with these filters",
       noResultsDescription: "Try a different genre or sort option.",
       filterCta: "Filter",
+      heroDetailsCta: "View Details",
+      exploreAllCta: "Explore all",
+      railScrollLeft: "Scroll left",
+      railScrollRight: "Scroll right",
+      nowPlayingDescription: "New and noteworthy films currently playing",
+      heroCarouselLabel: "Featured movies",
+      heroEyebrow: "Featured",
     },
     categories: {
       popular: "Popular",
@@ -866,6 +880,16 @@ export function buildTotalResultsSummary(
   const unitLabel = t(language, "common", unit);
 
   return `${t(language, "common", "total")} ${formattedCount} ${unitLabel}`;
+}
+
+export function buildHeroSlideLabel(
+  language: AppLanguage,
+  index: number,
+  total: number
+): string {
+  return language === "tr"
+    ? `${index}. öne çıkan film, ${total} üzerinden`
+    : `Featured movie ${index} of ${total}`;
 }
 
 export function buildSearchResultsForHeading(

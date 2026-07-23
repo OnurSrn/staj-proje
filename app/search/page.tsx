@@ -1,5 +1,8 @@
 import Link from "next/link";
 import MovieCard from "@/components/MovieCard";
+import EmptyState from "@/components/ui/EmptyState";
+import PageShell from "@/components/ui/PageShell";
+import SectionHeader from "@/components/ui/SectionHeader";
 import {
   buildPageSummary,
   buildSearchResultsForHeading,
@@ -51,7 +54,7 @@ export default async function SearchPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <PageShell pattern="subtle">
         <p className="text-sm font-semibold uppercase tracking-widest text-accent">
           {t(language, "search", "eyebrow")}
         </p>
@@ -88,35 +91,39 @@ export default async function SearchPage({
         </form>
 
         {!trimmedQuery && (
-          <div className="mt-12 rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
-            <h2 className="text-xl font-semibold">
-              {t(language, "search", "promptTitle")}
-            </h2>
-
-            <p className="mt-3 text-muted">
-              {t(language, "search", "promptDescription")}
-            </p>
-          </div>
+          <EmptyState
+            className="mt-12"
+            title={
+              <h2 className="text-xl font-semibold">
+                {t(language, "search", "promptTitle")}
+              </h2>
+            }
+            description={t(language, "search", "promptDescription")}
+          />
         )}
 
         {trimmedQuery && (
           <section className="mt-12">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold">
-                {buildSearchResultsForHeading(language, trimmedQuery)}
-              </h2>
+            <SectionHeader
+              className="mb-6"
+              title={
+                <h2 className="text-2xl font-bold">
+                  {buildSearchResultsForHeading(language, trimmedQuery)}
+                </h2>
+              }
+              description={
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                  <span>{buildPageSummary(language, currentPage, totalPages)}</span>
 
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                <span>{buildPageSummary(language, currentPage, totalPages)}</span>
-
-                <span>
-                  {buildTotalResultsSummary(
-                    language,
-                    searchData?.total_results ?? 0
-                  )}
-                </span>
-              </div>
-            </div>
+                  <span>
+                    {buildTotalResultsSummary(
+                      language,
+                      searchData?.total_results ?? 0
+                    )}
+                  </span>
+                </div>
+              }
+            />
 
             {movies.length > 0 ? (
               <>
@@ -172,19 +179,18 @@ export default async function SearchPage({
                 </nav>
               </>
             ) : (
-              <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
-                <h2 className="text-xl font-semibold">
-                  {t(language, "search", "noResultsTitle")}
-                </h2>
-
-                <p className="mt-3 text-muted">
-                  {t(language, "search", "noResultsDescription")}
-                </p>
-              </div>
+              <EmptyState
+                title={
+                  <h2 className="text-xl font-semibold">
+                    {t(language, "search", "noResultsTitle")}
+                  </h2>
+                }
+                description={t(language, "search", "noResultsDescription")}
+              />
             )}
           </section>
         )}
-      </section>
+      </PageShell>
     </main>
   );
 }

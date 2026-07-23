@@ -122,7 +122,7 @@ export default async function PersonDetailsPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <section className="pattern-brand pattern-subtle relative mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-10 md:grid-cols-[280px_1fr]">
           <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
             {profileUrl ? (
