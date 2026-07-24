@@ -513,6 +513,36 @@ export async function discoverMovies(
   return response.json();
 }
 
+// Search sayfasının "discover modu" için ince fetch fonksiyonu — parametre
+// oluşturma mantığı burada YAŞAMAZ (bkz. görev talimatı bölüm 4), tamamı
+// lib/searchQuery.ts'teki buildDiscoverMovieParams'ta saf biçimde üretilir.
+// api_key yalnızca burada, sunucu tarafında eklenir; client'a hiç taşınmaz.
+export async function discoverMoviesForSearch(
+  params: URLSearchParams
+): Promise<MovieListResponse> {
+  const apiKey = getApiKey();
+  const finalParams = new URLSearchParams(params);
+
+  finalParams.set("api_key", apiKey);
+
+  const response = await fetch(
+    `${TMDB_BASE_URL}/discover/movie?${finalParams.toString()}`,
+    {
+      next: {
+        revalidate: 3600,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Filmler filtrelenemedi. Hata kodu: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
 type MoodConfig = {
   genreIds: number[];
   minVoteAverage: number;

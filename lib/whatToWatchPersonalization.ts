@@ -1,8 +1,12 @@
 import {
   applyDiversitySelection,
-  CONFIDENCE_MULTIPLIERS,
   type RecommendationMovie,
 } from "@/lib/recommendationEngine";
+import {
+  CONFIDENCE_MULTIPLIERS,
+  WHAT_TO_WATCH_DIVERSITY_CONFIG,
+  WHAT_TO_WATCH_PERSONAL_SCORE_CAPS,
+} from "@/lib/recommendationConfig";
 import type { TasteProfile, WeightedPreference } from "@/lib/tasteProfile";
 
 // ─── Model ───────────────────────────────────────────────────────────────
@@ -74,21 +78,22 @@ export const WHAT_TO_WATCH_PERSONALIZATION_WEIGHTS = {
   discoveryDampening: 0.5,
 
   // Çeşitlilik ve genre-yığılma kontrolü yalnızca ilk N sonucu kapsar —
-  // recommendationEngine'deki DIVERSITY_WINDOW ile aynı büyüklük.
-  diversityWindow: 12,
-  maxConsecutiveSameGenreSignature: 3,
+  // recommendationEngine'deki diversity penceresiyle aynı büyüklük. Bu iki
+  // değer artık lib/recommendationConfig.ts'teki
+  // WHAT_TO_WATCH_DIVERSITY_CONFIG'ten gelir (merkezi config — bkz. görev
+  // talimatı Aşama 1), değer DEĞİŞMEDİ.
+  diversityWindow: WHAT_TO_WATCH_DIVERSITY_CONFIG.window,
+  maxConsecutiveSameGenreSignature:
+    WHAT_TO_WATCH_DIVERSITY_CONFIG.maxConsecutiveSameGenreSignature,
 } as const;
 
 // Personal score'un mutlak değeri, profil confidence'ına göre burada
 // sınırlanır — düşük veriyle güçlü bir kişisel sıralama iddia edilmez.
+// Artık lib/recommendationConfig.ts'ten (merkezi config), değer DEĞİŞMEDİ.
 export const WHAT_TO_WATCH_CONFIDENCE_LIMITS: Record<
   TasteProfile["confidence"],
   number
-> = {
-  low: 8,
-  medium: 14,
-  high: 20,
-};
+> = WHAT_TO_WATCH_PERSONAL_SCORE_CAPS;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));

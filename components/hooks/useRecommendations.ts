@@ -13,6 +13,11 @@ import {
   useWatchStatuses,
 } from "@/components/SavedMoviesProvider";
 import { buildMovieDnaProfile, MOVIE_DNA_SIGNALS } from "@/lib/movieDna";
+import { RECOMMENDATION_LIMITS } from "@/lib/recommendationConfig";
+import {
+  buildRecommendationContext,
+  type RecommendationUserSnapshot,
+} from "@/lib/recommendationContext";
 import {
   rankRecommendationCandidates,
   type RecommendationCandidate,
@@ -21,12 +26,14 @@ import {
 import type { TasteProfile, WeightedPreference } from "@/lib/tasteProfile";
 import type { MovieDetails } from "@/lib/tmdb";
 
-// v1: sonuç sayısı ve aday havuzu için güvenli sınırlar — bkz. görev
-// raporu "Performans ölçümü" bölümü.
-const MAX_RESULTS = 12;
-const MAX_GENRE_FILTER_IDS = 3;
-const MAX_KEYWORD_FILTER_IDS = 3;
-const MAX_DETAIL_FETCH_CANDIDATES = 40;
+// v1: sonuç sayısı ve aday havuzu için güvenli sınırlar — artık
+// lib/recommendationConfig.ts RECOMMENDATION_LIMITS'ten gelir (merkezi
+// config), değerler DEĞİŞMEDİ (bkz. görev raporu "Performans ölçümü"
+// bölümü).
+const MAX_RESULTS = RECOMMENDATION_LIMITS.maxResults;
+const MAX_GENRE_FILTER_IDS = RECOMMENDATION_LIMITS.maxGenreFilterIds;
+const MAX_KEYWORD_FILTER_IDS = RECOMMENDATION_LIMITS.maxKeywordFilterIds;
+const MAX_DETAIL_FETCH_CANDIDATES = RECOMMENDATION_LIMITS.maxDetailFetchCandidates;
 
 export type UseRecommendationsResult = {
   recommendations: RecommendationCandidate[];
@@ -34,64 +41,6 @@ export type UseRecommendationsResult = {
   isLoading: boolean;
   hasError: boolean;
 };
-
-// Yalnızca /^\d+$/ biçimindeki anahtarlar geçerli bir film id'si sayılır —
-// SavedMoviesProvider'ın toMovieRecord/toMovieIds dönüşümü zaten yalnızca
-// movie-tipi, düz sayısal-string kayıtlar üretir; bu ek bir savunma
-// katmanıdır (bkz. lib/tasteProfile.ts'teki aynı desen).
-function parseValidMovieId(key: string): number | null {
-  if (!/^\d+$/.test(key)) {
-    return null;
-  }
-
-  const id = Number(key);
-
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-/**
- * Kullanıcının zaten etkileşime girdiği (puanlanan, watched/watching/
- * dropped/plan-to-watch, favori, watchlist) tüm film id'lerini tek,
- * tekrarsız bir listede toplar. Saf bir fonksiyondur.
- */
-export function buildExcludedMovieIds(
-  ratings: Record<string, number>,
-  watchStatuses: Record<string, string>,
-  favoriteIds: number[],
-  watchlistIds: number[]
-): number[] {
-  const excluded = new Set<number>();
-
-  for (const key of Object.keys(ratings)) {
-    const id = parseValidMovieId(key);
-
-    if (id !== null) {
-      excluded.add(id);
-    }
-  }
-
-  for (const key of Object.keys(watchStatuses)) {
-    const id = parseValidMovieId(key);
-
-    if (id !== null) {
-      excluded.add(id);
-    }
-  }
-
-  for (const id of favoriteIds) {
-    if (Number.isInteger(id) && id > 0) {
-      excluded.add(id);
-    }
-  }
-
-  for (const id of watchlistIds) {
-    if (Number.isInteger(id) && id > 0) {
-      excluded.add(id);
-    }
-  }
-
-  return Array.from(excluded);
-}
 
 // TasteProfile'dan TMDB discover'a gönderilecek kompakt filtreleri üretir.
 // Yalnızca en güçlü birkaç sinyal seçilir — her explicit favori için ayrı
@@ -148,7 +97,10 @@ export function buildRecommendationFilters(
   };
 }
 
-export function toRecommendationMovie(movie: MovieDetails): RecommendationMovie {
+export function toRecommendationMovie(
+  movie: MovieDetails,
+  sourceIds?: string[]
+): RecommendationMovie {
   const genreIds = movie.genres.map((genre) => genre.id);
   const keywordIds = (movie.keywords?.keywords ?? []).map((keyword) => keyword.id);
   const castIds = movie.credits.cast.slice(0, 10).map((member) => member.id);
@@ -176,14 +128,20 @@ export function toRecommendationMovie(movie: MovieDetails): RecommendationMovie 
     companyIds,
     originCountryCodes: movie.origin_country ?? [],
     dnaProfile: buildMovieDnaProfile({ movieId: movie.id, genreIds, keywordIds }),
+    sourceIds,
   };
 }
+
+type CandidatePoolEntry = {
+  id: number;
+  sourceIds: string[];
+};
 
 /**
  * /for-you sayfası için uçtan uca akışı yönetir: TasteProfile'ı okur
  * (useTasteProfile), kompakt filtreleri sunucudaki /api/recommendations
- * uç noktasına gönderip bir aday id havuzu alır, zaten etkileşilen
- * filmleri erkenden eler, kalan adayların detaylarını (mevcut
+ * uç noktasına gönderip provenance korunmuş bir aday havuzu alır, zaten
+ * etkileşilen filmleri erkenden eler, kalan adayların detaylarını (mevcut
  * useMoviesByIds — sınırlı eşzamanlılıkla) getirir ve saf
  * rankRecommendationCandidates ile ilk 12 öneriyi üretir.
  */
@@ -195,9 +153,27 @@ export function useRecommendations(): UseRecommendationsResult {
   const { favoritePeople } = useFavoritePeople();
   const { favoriteCompanies } = useFavoriteCompanies();
 
-  const excludedMovieIds = useMemo(
-    () => buildExcludedMovieIds(ratings, statuses, favoriteIds, watchlistIds),
-    [ratings, statuses, favoriteIds, watchlistIds]
+  // Auth hazırlığı: ham localStorage sinyalleri tek bir isimlendirilmiş
+  // sınıra (RecommendationUserSnapshot) toplanır — bkz.
+  // lib/recommendationContext.ts. Bu snapshot ileride bir database/user
+  // API'den de aynı şekilde doldurulabilir; pipeline'ın geri kalanı
+  // (excludedMovieIds, profileConfidence, coldStartTier) kaynaktan
+  // bağımsızdır.
+  const snapshot: RecommendationUserSnapshot = useMemo(
+    () => ({
+      ratings,
+      watchStatuses: statuses,
+      favoriteMovieIds: favoriteIds,
+      watchlistMovieIds: watchlistIds,
+      favoritePeople,
+      favoriteCompanies,
+    }),
+    [ratings, statuses, favoriteIds, watchlistIds, favoritePeople, favoriteCompanies]
+  );
+
+  const context = useMemo(
+    () => (tasteProfile ? buildRecommendationContext(snapshot, tasteProfile) : null),
+    [snapshot, tasteProfile]
   );
 
   const filters = useMemo(
@@ -205,7 +181,9 @@ export function useRecommendations(): UseRecommendationsResult {
     [tasteProfile]
   );
 
-  const [candidateIds, setCandidateIds] = useState<number[] | null>(null);
+  const [candidatePool, setCandidatePool] = useState<CandidatePoolEntry[] | null>(
+    null
+  );
   const [poolError, setPoolError] = useState(false);
 
   useEffect(() => {
@@ -251,18 +229,18 @@ export function useRecommendations(): UseRecommendationsResult {
 
         if (!response.ok) {
           setPoolError(true);
-          setCandidateIds([]);
+          setCandidatePool([]);
           return;
         }
 
-        const data: { candidateIds: number[] } = await response.json();
+        const data: { candidates: CandidatePoolEntry[] } = await response.json();
 
         setPoolError(false);
-        setCandidateIds(data.candidateIds ?? []);
+        setCandidatePool(data.candidates ?? []);
       } catch {
         if (!controller.signal.aborted) {
           setPoolError(true);
-          setCandidateIds([]);
+          setCandidatePool([]);
         }
       }
     }
@@ -274,17 +252,31 @@ export function useRecommendations(): UseRecommendationsResult {
     };
   }, [filters]);
 
-  const excludedSet = useMemo(() => new Set(excludedMovieIds), [excludedMovieIds]);
+  const excludedSet = useMemo(
+    () => new Set(context?.excludedMovieIds ?? []),
+    [context]
+  );
+
+  const sourceIdsByMovieId = useMemo(() => {
+    const map = new Map<number, string[]>();
+
+    for (const entry of candidatePool ?? []) {
+      map.set(entry.id, entry.sourceIds);
+    }
+
+    return map;
+  }, [candidatePool]);
 
   const detailFetchIds = useMemo(() => {
-    if (!candidateIds) {
+    if (!candidatePool) {
       return [];
     }
 
-    return candidateIds
+    return candidatePool
+      .map((entry) => entry.id)
       .filter((id) => !excludedSet.has(id))
       .slice(0, MAX_DETAIL_FETCH_CANDIDATES);
-  }, [candidateIds, excludedSet]);
+  }, [candidatePool, excludedSet]);
 
   const {
     movies,
@@ -293,11 +285,13 @@ export function useRecommendations(): UseRecommendationsResult {
   } = useMoviesByIds(detailFetchIds, { mode: "dna" });
 
   const recommendations = useMemo(() => {
-    if (!tasteProfile || candidateIds === null || moviesLoading) {
+    if (!context || candidatePool === null || moviesLoading) {
       return [];
     }
 
-    const candidates = movies.map(toRecommendationMovie);
+    const candidates = movies.map((movie) =>
+      toRecommendationMovie(movie, sourceIdsByMovieId.get(movie.id))
+    );
 
     const personNames: Record<number, string> = {};
     const companyNames: Record<number, string> = {};
@@ -327,24 +321,24 @@ export function useRecommendations(): UseRecommendationsResult {
     }
 
     return rankRecommendationCandidates({
-      tasteProfile,
+      tasteProfile: context.tasteProfile,
       candidates,
-      excludedMovieIds,
+      excludedMovieIds: context.excludedMovieIds,
       personNames,
       companyNames,
     }).slice(0, MAX_RESULTS);
   }, [
-    tasteProfile,
-    candidateIds,
+    context,
+    candidatePool,
     moviesLoading,
     movies,
+    sourceIdsByMovieId,
     favoritePeople,
     favoriteCompanies,
-    excludedMovieIds,
   ]);
 
   const isLoading =
-    profileLoading || (filters !== null && candidateIds === null) || moviesLoading;
+    profileLoading || (filters !== null && candidatePool === null) || moviesLoading;
 
   return {
     recommendations,

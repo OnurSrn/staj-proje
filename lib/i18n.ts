@@ -1,3 +1,4 @@
+import { SEARCH_SORT_OPTIONS } from "@/lib/searchFilters";
 import type { AppLanguage } from "@/lib/settings";
 
 // Uygulamanın kendi UI metinleri için merkezi çeviri kaynağı. TMDB'den
@@ -64,6 +65,8 @@ const translations = {
       railScrollLeft: "Geriye kaydır",
       railScrollRight: "İleriye kaydır",
       nowPlayingDescription: "Vizyondaki yeni ve dikkat çeken filmler",
+      topRatedDescription:
+        "Yüksek puan ve güçlü izleyici güveniyle öne çıkan filmler",
       heroCarouselLabel: "Öne çıkan filmler",
       heroEyebrow: "Öne Çıkan",
     },
@@ -78,6 +81,13 @@ const translations = {
       "vote_average.desc": "En Yüksek Puan",
       "primary_release_date.desc": "En Yeni",
     },
+    searchSorts: {
+      relevance: "İlgi Düzeyi",
+      popularity: "Popülerlik",
+      rating: "Puan",
+      newest: "En Yeni",
+      oldest: "En Eski",
+    },
     search: {
       eyebrow: "Film Araması",
       title: "Film Ara",
@@ -91,6 +101,20 @@ const translations = {
       resultsForSuffix: "için sonuçlar",
       noResultsTitle: "Film bulunamadı",
       noResultsDescription: "Başka bir film adıyla tekrar arama yap.",
+      noResultsForFiltersDescription: "Bu filtrelerle sonuç bulunamadı.",
+      applyFilters: "Filtreleri Uygula",
+      genreLabel: "Tür",
+      allGenres: "Tüm Türler",
+      yearFromLabel: "Başlangıç Yılı",
+      yearToLabel: "Bitiş Yılı",
+      minimumRatingLabel: "Minimum Puan",
+      anyRatingOption: "Puan fark etmez",
+      sortLabel: "Sıralama",
+      activeFiltersHeading: "Aktif Filtreler",
+      queryIgnoredNotice:
+        "Yapısal filtreler (tür/yıl/puan/sıralama) etkinken arama metni dikkate alınmıyor.",
+      invalidParamsNotice:
+        "Bazı filtre değerleri geçersizdi ve otomatik olarak düzeltildi.",
     },
     movieDetail: {
       eyebrow: "Film Detayları",
@@ -478,6 +502,7 @@ const translations = {
       railScrollLeft: "Scroll left",
       railScrollRight: "Scroll right",
       nowPlayingDescription: "New and noteworthy films currently playing",
+      topRatedDescription: "Highly rated films backed by strong audience confidence",
       heroCarouselLabel: "Featured movies",
       heroEyebrow: "Featured",
     },
@@ -492,6 +517,13 @@ const translations = {
       "vote_average.desc": "Highest Rated",
       "primary_release_date.desc": "Newest",
     },
+    searchSorts: {
+      relevance: "Relevance",
+      popularity: "Popularity",
+      rating: "Rating",
+      newest: "Newest",
+      oldest: "Oldest",
+    },
     search: {
       eyebrow: "Movie Search",
       title: "Search Movies",
@@ -505,6 +537,20 @@ const translations = {
       resultsForSuffix: "search results",
       noResultsTitle: "No movies found",
       noResultsDescription: "Try searching with a different movie name.",
+      noResultsForFiltersDescription: "No results match these filters.",
+      applyFilters: "Apply filters",
+      genreLabel: "Genre",
+      allGenres: "All Genres",
+      yearFromLabel: "From Year",
+      yearToLabel: "To Year",
+      minimumRatingLabel: "Minimum Rating",
+      anyRatingOption: "Any rating",
+      sortLabel: "Sort",
+      activeFiltersHeading: "Active filters",
+      queryIgnoredNotice:
+        "Search text is ignored while structural filters (genre/year/rating/sort) are active.",
+      invalidParamsNotice:
+        "Some filter values were invalid and have been automatically corrected.",
     },
     movieDetail: {
       eyebrow: "Movie Details",
@@ -1080,5 +1126,12 @@ export function getDiscoveryOptions(language: AppLanguage) {
   return DISCOVERY_OPTION_VALUES.map((value) => ({
     value,
     label: t(language, "discoveries", value),
+  }));
+}
+
+export function getSearchSortOptions(language: AppLanguage) {
+  return SEARCH_SORT_OPTIONS.map((value) => ({
+    value,
+    label: t(language, "searchSorts", value),
   }));
 }

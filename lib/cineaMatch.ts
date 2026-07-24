@@ -1,3 +1,8 @@
+import {
+  MATCH_CALIBRATION,
+  MATCH_CONFIDENCE_RANGES,
+  MATCH_LIMITS,
+} from "@/lib/recommendationConfig";
 import type { TasteProfile } from "@/lib/tasteProfile";
 
 // ─── Model ───────────────────────────────────────────────────────────────
@@ -36,63 +41,17 @@ export type CalculateCineaMatchInput = {
 
 // ─── Kalibrasyon config'i ────────────────────────────────────────────────
 //
-// Tüm magic number'lar burada toplanır. Hiçbiri random/Date.now
-// kullanmaz — calculateCineaMatch tamamen deterministiktir.
-export const MATCH_CALIBRATION = {
-  // personalContribution -> sigmoid ile [0,1]'e sıkıştırılır, sonra
-  // neutralPercentage etrafında +/- amplitude kadar yayılır. steepness
-  // küçük tutulur ki tek bir güçlü negatif/pozitif sinyal sonucu
-  // tamamen çökertmesin/domine etmesin.
-  sigmoidSteepness: 0.035,
-  neutralPercentage: 55,
-  amplitude: 35,
-
-  // Quality katkısı (RECOMMENDATION_WEIGHTS.qualityMax ile aynı ölçekte,
-  // yaklaşık -10..10) küçük, sınırlı bir bonus/penaltıya çevrilir —
-  // tek başına yüksek match üretemez.
-  qualityContributionScale: 10,
-  qualityBonusMax: 6,
-
-  // Kanıt çeşitliliği: yalnızca pozitif kişisel sinyal TÜRÜ sayısı 1'den
-  // fazla olduğunda uygulanır (3 aynı türde genre eşleşmesi ile
-  // genre+dna+director arasındaki fark burada ortaya çıkar).
-  diversityBonusPerExtraType: 1.5,
-  diversityBonusMaxExtraTypes: 4,
-  diversityBonusMax: 6,
-
-  // Explicit (kullanıcının açıkça seçtiği) favori eşleşmesi zaten
-  // breakdown.explicit içinde büyük bir katkı üretir; burada küçük bir
-  // ek "güven" nüansı eklenir.
-  explicitMatchBonus: 3,
-
-  // Negatif kişisel sinyaller görünür şekilde cezalandırılır — breakdown
-  // içindeki negatif katkı zaten sigmoid'e yansımıştır, bu ek bir
-  // "fark edilebilirlik" cezasıdır.
-  negativeSignalPenaltyPerSignal: 3,
-  negativeSignalPenaltyMax: 15,
-
-  // Low confidence'ta "Umut Veren Eşleşme" etiketi için eşik.
-  lowConfidencePromisingThreshold: 75,
-} as const;
-
-// Confidence seviyesine göre nihai yüzde aralığı — low %90+ asla, medium
-// ~%92 tavan, high ~%96 tavan üretir.
-export const MATCH_CONFIDENCE_RANGES: Record<
-  MatchConfidence,
-  { min: number; max: number }
-> = {
-  low: { min: 28, max: 82 },
-  medium: { min: 22, max: 92 },
-  high: { min: 12, max: 96 },
-};
-
-export const MATCH_LIMITS = {
-  minPercentage: 0,
-  maxPercentage: 100,
-  // Yalnızca quality/discovery sinyaliyle (hiç kişisel kanıt yokken) low
-  // confidence'ta bu tavanın üstüne çıkılamaz.
-  qualityOnlyLowConfidenceMax: 70,
-} as const;
+// Tüm magic number'lar artık lib/recommendationConfig.ts'te (merkezi config
+// — bkz. "CiNeA Recommendation Engine v2" Aşama 1) tanımlıdır ve buradan
+// import edilir; değerler DEĞİŞMEDİ. Hiçbiri random/Date.now kullanmaz —
+// calculateCineaMatch tamamen deterministiktir.
+//
+// MATCH_CONFIDENCE_RANGES: Confidence seviyesine göre nihai yüzde aralığı —
+// low %90+ asla, medium ~%92 tavan, high ~%96 tavan üretir.
+// MATCH_LIMITS.qualityOnlyLowConfidenceMax: yalnızca quality/discovery
+// sinyaliyle (hiç kişisel kanıt yokken) low confidence'ta bu tavanın
+// üstüne çıkılamaz.
+export { MATCH_CALIBRATION, MATCH_CONFIDENCE_RANGES, MATCH_LIMITS };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));

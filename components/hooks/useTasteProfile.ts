@@ -12,6 +12,7 @@ import {
   type WatchStatus,
 } from "@/components/SavedMoviesProvider";
 import { buildMovieDnaProfile } from "@/lib/movieDna";
+import { RECOMMENDATION_LIMITS } from "@/lib/recommendationConfig";
 import {
   buildTasteProfile,
   getRatingWeight,
@@ -20,13 +21,14 @@ import {
 } from "@/lib/tasteProfile";
 import type { MovieDetails } from "@/lib/tmdb";
 
-// v1 güvenli sınır: profil için en fazla bu kadar film analiz edilir.
-// useMoviesByIds zaten aynı anda en fazla 6 istek uçurur (bkz.
-// MOVIE_FETCH_CONCURRENCY); bu sabit ayrıca toplam istek SAYISINI (ve
-// dolayısıyla TMDB'ye giden toplam yükü) sınırlar. Puanlanmış filmler en
-// güçlü sinyal olduğu için önceliklidir; kalan kapasite yalnızca durumu
-// olan (rating'siz) filmlerle doldurulur.
-const MAX_ANALYZED_MOVIES = 50;
+// v1 güvenli sınır: profil için en fazla bu kadar film analiz edilir —
+// artık lib/recommendationConfig.ts RECOMMENDATION_LIMITS'ten (merkezi
+// config), değer DEĞİŞMEDİ. useMoviesByIds zaten aynı anda en fazla 6
+// istek uçurur (bkz. MOVIE_FETCH_CONCURRENCY); bu sabit ayrıca toplam
+// istek SAYISINI (ve dolayısıyla TMDB'ye giden toplam yükü) sınırlar.
+// Puanlanmış filmler en güçlü sinyal olduğu için önceliklidir; kalan
+// kapasite yalnızca durumu olan (rating'siz) filmlerle doldurulur.
+const MAX_ANALYZED_MOVIES = RECOMMENDATION_LIMITS.maxAnalyzedMovies;
 
 export type UseTasteProfileResult = {
   profile: TasteProfile | null;

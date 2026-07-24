@@ -95,7 +95,7 @@ export default function WhatToWatchResults({
       };
     }
 
-    const candidates = detailedMovies.map(toRecommendationMovie);
+    const candidates = detailedMovies.map((movie) => toRecommendationMovie(movie));
 
     const ranked = rankWhatToWatchCandidates({
       candidates,

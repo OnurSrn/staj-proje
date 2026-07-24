@@ -147,7 +147,7 @@ export default function HomeHero({ movies, language }: HomeHeroProps) {
         aria-hidden="true"
       />
 
-      <div className="relative flex flex-col gap-8 px-6 py-10 sm:px-10 sm:py-14 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative flex flex-col gap-6 px-6 py-8 sm:gap-8 sm:px-10 sm:py-14 lg:flex-row lg:items-center lg:justify-between">
         <div className="order-2 flex min-w-0 flex-1 flex-col gap-5 lg:order-1">
           <div
             key={activeMovie.id}
@@ -213,12 +213,17 @@ export default function HomeHero({ movies, language }: HomeHeroProps) {
                     movies.length
                   )}
                   onClick={() => goToIndex(index)}
-                  className={
-                    index === activeIndex
-                      ? "h-2.5 w-7 rounded-full bg-accent shadow-[0_0_10px_-2px_var(--accent)] transition-all duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      : "carousel-dot h-2.5 w-2.5 bg-border transition-all duration-300 motion-reduce:transition-none hover:bg-accent-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  }
-                />
+                  className="group -my-4 flex h-11 w-11 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      index === activeIndex
+                        ? "h-2.5 w-7 rounded-full bg-accent shadow-[0_0_10px_-2px_var(--accent)] transition-all duration-300 motion-reduce:transition-none"
+                        : "carousel-dot h-2.5 w-2.5 bg-border transition-all duration-300 motion-reduce:transition-none group-hover:bg-accent-secondary/60"
+                    }
+                  />
+                </button>
               ))}
             </div>
           )}

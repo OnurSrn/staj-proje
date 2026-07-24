@@ -4,6 +4,22 @@ import {
   type RecommendationScoreBreakdown,
 } from "@/lib/cineaMatch";
 import type { MovieDnaProfile } from "@/lib/movieDna";
+import {
+  calculateBayesianQualityScore,
+  normalizeQualityConfidence,
+} from "@/lib/qualityConfidence";
+import {
+  CONFIDENCE_MULTIPLIERS,
+  EXPLICIT_CATEGORY_WEIGHTS,
+  EXPLICIT_MIN_CONFIDENCE_MULTIPLIER,
+  INFERRED_PREFERENCE_CONFIG,
+  MAX_DNA_MATCHES_PER_CANDIDATE,
+  MAX_GENRE_MATCHES_PER_CANDIDATE,
+  RECOMMENDATION_DIVERSITY_CONFIG,
+  RECOMMENDATION_QUALITY_CONFIG,
+  RECOMMENDATION_WEIGHT_CAPS,
+  RUNTIME_FIT_CONFIG,
+} from "@/lib/recommendationConfig";
 import type { PersonPreference, TasteProfile } from "@/lib/tasteProfile";
 
 export type { RecommendationScoreBreakdown } from "@/lib/cineaMatch";
@@ -46,11 +62,21 @@ export type RecommendationMovie = {
   companyIds: number[];
   originCountryCodes: string[];
   dnaProfile: MovieDnaProfile;
+  // Bu adayın hangi candidate source'lardan (bkz. lib/recommendationConfig.ts
+  // RECOMMENDATION_SOURCES) geldiği — provenance. Opsiyonel: yalnızca
+  // /api/recommendations tabanlı akış (useRecommendations.ts) doldurur;
+  // What to Watch gibi başka çağıranlar boş bırakabilir (bkz. görev
+  // talimatı Aşama 3 "candidate provenance korunmalı").
+  sourceIds?: string[];
 };
 
 export type RecommendationCandidate = {
   movie: RecommendationMovie;
   score: number;
+  // Bayesian kalite-güven sinyali, [0,1] — bkz. lib/qualityConfidence.ts.
+  // Tie-break'te ve explain/debug helper'ında kullanılır (bkz. görev
+  // talimatı Aşama 6/8/11).
+  qualityConfidence: number;
   reasons: RecommendationReason[];
   breakdown: RecommendationScoreBreakdown;
   match: CineaMatch;
@@ -81,64 +107,37 @@ export type RankRecommendationInput = {
 //
 // Hiçbir kategori tek başına sonucu domine etmesin diye her bileşenin bir
 // üst sınırı var; toplamın tam 100 olması şart değil (bkz. görev talimatı).
+//
+// Tüm ham sayısal değerler artık lib/recommendationConfig.ts'te yaşar (bkz.
+// "CiNeA Recommendation Engine v2" Aşama 1) — burada yalnızca bu dosyanın
+// geri kalanının kullandığı KISA yerel isimlere yeniden bağlanır; hiçbir
+// değer değişmedi.
+const RECOMMENDATION_WEIGHTS = RECOMMENDATION_WEIGHT_CAPS;
+const EXPLICIT_MIN_MULTIPLIER = EXPLICIT_MIN_CONFIDENCE_MULTIPLIER;
+const MAX_GENRE_MATCHES = MAX_GENRE_MATCHES_PER_CANDIDATE;
+const MAX_DNA_MATCHES = MAX_DNA_MATCHES_PER_CANDIDATE;
 
-export const RECOMMENDATION_WEIGHTS = {
-  genreMax: 30,
-  dnaMax: 30,
-  explicitMax: 20,
-  inferredMax: 10,
-  eraMax: 4,
-  languageMax: 3,
-  runtimeMax: 3,
-  qualityMax: 10,
-};
-
-export const CONFIDENCE_MULTIPLIERS: Record<TasteProfile["confidence"], number> = {
-  low: 0.45,
-  medium: 0.75,
-  high: 1.0,
-};
-
-// Explicit favoriler confidence tarafından asla tamamen ezilmesin — low
-// confidence'ta bile en az bu çarpanla uygulanır (Math.max ile).
-const EXPLICIT_MIN_MULTIPLIER = 0.85;
-
-export const QUALITY_THRESHOLDS = {
-  minVoteCountForBonus: 500,
-  minVoteAverageForBonus: 7,
-  bonusAmount: 5,
-  // Bu eşiğin altında oy sayısı olan filmlere ceza uygulanmaz — "yeni/az
-  // oylanmış filmleri tamamen yok etme" kuralı.
-  lowVoteCountThreshold: 50,
-  lowVoteAverageThreshold: 5,
-  penaltyAmount: 3,
-  maxPopularityBonus: 3,
-};
-
-const MAX_GENRE_MATCHES = 3;
-const MAX_DNA_MATCHES = 3;
-
-const EXPLICIT_ACTOR_WEIGHT = 1;
-const EXPLICIT_DIRECTOR_WEIGHT = 1.3;
-const EXPLICIT_COMPANY_WEIGHT = 0.8;
+const EXPLICIT_ACTOR_WEIGHT = EXPLICIT_CATEGORY_WEIGHTS.actor;
+const EXPLICIT_DIRECTOR_WEIGHT = EXPLICIT_CATEGORY_WEIGHTS.director;
+const EXPLICIT_COMPANY_WEIGHT = EXPLICIT_CATEGORY_WEIGHTS.company;
 const EXPLICIT_MAX_RAW = EXPLICIT_ACTOR_WEIGHT + EXPLICIT_DIRECTOR_WEIGHT + EXPLICIT_COMPANY_WEIGHT;
 
-const INFERRED_STRONG_EVIDENCE_COUNT = 3;
-const INFERRED_LOW_EVIDENCE_MULTIPLIER = 0.6;
-const INFERRED_STRONG_EVIDENCE_MULTIPLIER = 1.0;
-const INFERRED_CATEGORY_COUNT = 3; // actor + director + company
+const INFERRED_STRONG_EVIDENCE_COUNT = INFERRED_PREFERENCE_CONFIG.strongEvidenceCount;
+const INFERRED_LOW_EVIDENCE_MULTIPLIER = INFERRED_PREFERENCE_CONFIG.lowEvidenceMultiplier;
+const INFERRED_STRONG_EVIDENCE_MULTIPLIER = INFERRED_PREFERENCE_CONFIG.strongEvidenceMultiplier;
+const INFERRED_CATEGORY_COUNT = INFERRED_PREFERENCE_CONFIG.categoryCount; // actor + director + company
 
-const FAR_RUNTIME_DISTANCE_MINUTES = 60;
-const FAR_RUNTIME_PENALTY = 1;
+const FAR_RUNTIME_DISTANCE_MINUTES = RUNTIME_FIT_CONFIG.farDistanceMinutes;
+const FAR_RUNTIME_PENALTY = RUNTIME_FIT_CONFIG.farPenalty;
 
 // Çeşitlilik penceresi (ilk N sonuç) ve kısıtları.
-const DIVERSITY_WINDOW = 12;
-const MAX_PER_DIRECTOR_IN_WINDOW = 2;
-const MAX_PER_COMPANY_IN_WINDOW = 3;
+const DIVERSITY_WINDOW = RECOMMENDATION_DIVERSITY_CONFIG.window;
+const MAX_PER_DIRECTOR_IN_WINDOW = RECOMMENDATION_DIVERSITY_CONFIG.maxPerDirectorInWindow;
+const MAX_PER_COMPANY_IN_WINDOW = RECOMMENDATION_DIVERSITY_CONFIG.maxPerCompanyInWindow;
 // Bir aday çeşitlilik kısıtını ihlal etse de, penceredeki en düşük skorlu
 // seçilmiş adaydan bu kadar (veya daha fazla) yüksek puanlıysa yine de
 // korunur — "score farkı büyükse güçlü eşleşme korunmalı" kuralı.
-const DIVERSITY_SCORE_GUARD = 10;
+const DIVERSITY_SCORE_GUARD = RECOMMENDATION_DIVERSITY_CONFIG.scoreGuard;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -664,31 +663,61 @@ function getRuntimeContribution(
 // TMDB puanı burada KİŞİSEL zevk olarak değil, yalnızca aday
 // kalitesi/sıralama güvenliği için kullanılır (bkz. görev kısıtı). Az
 // oylanmış filmler cezalandırılmaz, yalnızca bonus almaz.
+//
+// v2: kalite bonusu artık lib/qualityConfidence.ts'teki PAYLAŞILAN
+// Bayesian primitive'inden gelir — Top Rated ile AYNI formül, ayrı bir
+// kopya yazılmadı (bkz. görev talimatı Aşama 5). Eski (v1) sabit +5
+// eşik-bonusu yerine, oy sayısına göre KADEMELİ (graduated) bir bonus
+// üretir: 15 oyla 9.5 puan artık neredeyse hiç bonus almazken, 50.000+
+// oyla 8.7 puan tam/yakın tavana ulaşır. Düşük-kalite CEZASI ise v1 ile
+// birebir AYNI bırakıldı (bilerek Bayesian hesaptan ayrı) — davranış
+// dramatik değişmesin diye (bkz. final rapor "Quality confidence" örnek
+// önce/sonra karşılaştırması).
 function getQualityContribution(
   voteAverage: number,
   voteCount: number,
   popularity: number
-): { contribution: number; reasons: RecommendationReason[] } {
-  let contribution = 0;
+): {
+  contribution: number;
+  reasons: RecommendationReason[];
+  qualityConfidence: number;
+} {
+  const bayesianScore = calculateBayesianQualityScore(
+    voteAverage,
+    voteCount,
+    RECOMMENDATION_QUALITY_CONFIG.priorMean,
+    {
+      confidenceVoteCount: RECOMMENDATION_QUALITY_CONFIG.confidenceVoteCount,
+      minimumVoteCount: RECOMMENDATION_QUALITY_CONFIG.minimumVoteCount,
+    }
+  );
 
-  if (
-    voteCount >= QUALITY_THRESHOLDS.minVoteCountForBonus &&
-    voteAverage >= QUALITY_THRESHOLDS.minVoteAverageForBonus
-  ) {
-    contribution += QUALITY_THRESHOLDS.bonusAmount;
-  }
+  const qualityConfidence = normalizeQualityConfidence(bayesianScore, {
+    lowerAnchor: RECOMMENDATION_QUALITY_CONFIG.lowerAnchor,
+    upperAnchor: RECOMMENDATION_QUALITY_CONFIG.upperAnchor,
+  });
 
+  // [0,1] -> [0, qualityMax] — yalnızca pozitif bir bonus (v1'in "az
+  // oylanmış filme ceza yok" prensibiyle tutarlı).
+  let contribution = qualityConfidence * RECOMMENDATION_WEIGHTS.qualityMax;
+
+  // v1 ile AYNI, DEĞİŞTİRİLMEMİŞ düşük-kalite cezası.
   if (
-    voteCount >= QUALITY_THRESHOLDS.lowVoteCountThreshold &&
+    voteCount >= RECOMMENDATION_QUALITY_CONFIG.lowVoteCountThreshold &&
     voteAverage > 0 &&
-    voteAverage < QUALITY_THRESHOLDS.lowVoteAverageThreshold
+    voteAverage < RECOMMENDATION_QUALITY_CONFIG.lowVoteAverageThreshold
   ) {
-    contribution -= QUALITY_THRESHOLDS.penaltyAmount;
+    contribution -= RECOMMENDATION_QUALITY_CONFIG.lowQualityPenalty;
   }
 
+  // NaN/eksik popularity (Math.max/Math.min NaN'i sessizce sızdırır) burada
+  // güvenli biçimde 0'a düşürülür — aksi halde tüm contribution NaN'e
+  // dönüşürdü (bkz. test matrisi senaryo 17/22 — bu, v2 öncesinde de var
+  // olan gizli bir hataydı, burada düzeltildi).
+  const safePopularity = Number.isFinite(popularity) ? popularity : 0;
   const popularityBonus = Math.min(
-    QUALITY_THRESHOLDS.maxPopularityBonus,
-    Math.log10(Math.max(1, popularity))
+    RECOMMENDATION_QUALITY_CONFIG.maxPopularityBonus,
+    Math.log10(Math.max(1, safePopularity))
   );
 
   contribution += popularityBonus;
@@ -709,7 +738,7 @@ function getQualityContribution(
         ]
       : [];
 
-  return { contribution, reasons };
+  return { contribution, reasons, qualityConfidence };
 }
 
 // ─── Tek film skorlama ───────────────────────────────────────────────────
@@ -842,10 +871,33 @@ function scoreCandidate(
     hasExplicitMatch,
   });
 
-  return { movie, score, reasons, breakdown, match };
+  return {
+    movie,
+    score,
+    qualityConfidence: quality.qualityConfidence,
+    reasons,
+    breakdown,
+    match,
+  };
 }
 
 // ─── Sıralama + tie-break ────────────────────────────────────────────────
+//
+// Deterministik tie-break zinciri (bkz. görev talimatı Aşama 8): finalScore
+// -> qualityConfidence -> vote_count -> vote_average -> release_date ->
+// movie ID. Release date için "daha eski önce" kuralı seçildi — bu proje
+// içinde lib/topRatedRanking.ts'in eşit-skor tie-break'iyle AYNI kural
+// (tutarlılık için); rastgele/Date.now kullanılmaz.
+function getReleaseTimeForTieBreak(releaseDate: string | undefined): number | null {
+  if (!releaseDate) {
+    return null;
+  }
+
+  const time = new Date(releaseDate).getTime();
+
+  return Number.isFinite(time) ? time : null;
+}
+
 function compareRecommendationCandidate(
   a: RecommendationCandidate,
   b: RecommendationCandidate
@@ -854,12 +906,31 @@ function compareRecommendationCandidate(
     return b.score - a.score;
   }
 
+  if (b.qualityConfidence !== a.qualityConfidence) {
+    return b.qualityConfidence - a.qualityConfidence;
+  }
+
   if (b.movie.voteCount !== a.movie.voteCount) {
     return b.movie.voteCount - a.movie.voteCount;
   }
 
   if (b.movie.voteAverage !== a.movie.voteAverage) {
     return b.movie.voteAverage - a.movie.voteAverage;
+  }
+
+  const aTime = getReleaseTimeForTieBreak(a.movie.releaseDate);
+  const bTime = getReleaseTimeForTieBreak(b.movie.releaseDate);
+
+  if (aTime !== null && bTime !== null && aTime !== bTime) {
+    return aTime - bTime;
+  }
+
+  if (aTime === null && bTime !== null) {
+    return 1;
+  }
+
+  if (aTime !== null && bTime === null) {
+    return -1;
   }
 
   return a.movie.id - b.movie.id;

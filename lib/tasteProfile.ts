@@ -4,6 +4,7 @@ import type {
   FavoritePerson,
 } from "@/components/PreferenceProvider";
 import { MOVIE_DNA_SIGNALS, type MovieDnaProfile } from "@/lib/movieDna";
+import { DISCRETE_CONFIDENCE_THRESHOLDS } from "@/lib/recommendationConfig";
 
 export type WeightedPreference = {
   id: string;
@@ -358,8 +359,11 @@ const MIN_EVIDENCE_FOR_INFERRED_PREFERENCE = 2;
 // İzleme durumu olan ama puanı olmayan filmler de confidence'ı
 // yükseltmez — bunlar yardımcı ilgi sinyalidir, güvenilir beğeni kanıtı
 // değildir (bkz. totalRatedMovies parametresi, totalStatusMovies değil).
-const CONFIDENCE_MAX_RATED_FOR_LOW = 4;
-const CONFIDENCE_MAX_RATED_FOR_MEDIUM = 14;
+// Artık lib/recommendationConfig.ts DISCRETE_CONFIDENCE_THRESHOLDS'tan
+// (merkezi config), değerler DEĞİŞMEDİ.
+const CONFIDENCE_MAX_RATED_FOR_LOW = DISCRETE_CONFIDENCE_THRESHOLDS.maxRatedForLow;
+const CONFIDENCE_MAX_RATED_FOR_MEDIUM =
+  DISCRETE_CONFIDENCE_THRESHOLDS.maxRatedForMedium;
 
 function computeConfidence(
   totalRatedMovies: number

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RECOMMENDATION_LIMITS } from "@/lib/recommendationConfig";
 import type { MovieDetails } from "@/lib/tmdb";
 
 type UseMoviesByIdsResult = {
@@ -36,8 +37,10 @@ const EMPTY_COMPLETED: CompletedFetch = {
 // lib/collectionEngine.ts'teki KEYWORD_FETCH_CONCURRENCY ile aynı mantık:
 // aynı anda en fazla bu kadar /api/movies/[id] isteği uçuşsun — büyük id
 // listelerinde (ör. taste profile'ın 50 filme kadar çıkabilen girdisi)
-// kontrolsüz paralel istek patlaması oluşmasın.
-const MOVIE_FETCH_CONCURRENCY = 6;
+// kontrolsüz paralel istek patlaması oluşmasın. Artık
+// lib/recommendationConfig.ts RECOMMENDATION_LIMITS'ten (merkezi config),
+// değer DEĞİŞMEDİ.
+const MOVIE_FETCH_CONCURRENCY = RECOMMENDATION_LIMITS.movieFetchConcurrency;
 
 async function fetchMovie(
   movieId: number,

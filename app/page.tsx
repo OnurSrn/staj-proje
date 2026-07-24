@@ -4,6 +4,7 @@ import PageShell from "@/components/ui/PageShell";
 import { t } from "@/lib/i18n";
 import { getServerLanguage } from "@/lib/serverLanguage";
 import { getMovieDetails, getMoviesByCategory, type TmdbMovie } from "@/lib/tmdb";
+import { rankTopRatedMovies, TOP_RATED_CONFIG } from "@/lib/topRatedRanking";
 
 // Popular ile Now Playing ilk kartlarda mümkün olduğunca farklı olsun
 // (bkz. görev talimatı bölüm 1) — yeni bir istek atmadan, zaten çekilmiş
@@ -77,14 +78,25 @@ function selectHeroCandidates(
 }
 
 export default async function Home() {
-  const [popular, nowPlaying, topRated, upcoming, language] =
+  const [popular, nowPlaying, topRatedPages, upcoming, language] =
     await Promise.all([
       getMoviesByCategory("popular", 1),
       getMoviesByCategory("now-playing", 1),
-      getMoviesByCategory("top-rated", 1),
+      // Tek TMDB sayfası (20 sonuç) yeterli çeşitlilik sağlamadığı için
+      // aynı endpoint'in birkaç sayfası bir aday havuzunda birleştirilir
+      // (bkz. görev talimatı bölüm 4). Yeni film-detay isteği eklenmez;
+      // yalnızca zaten var olan getMoviesByCategory sayfalaması kullanılır.
+      Promise.all(
+        Array.from({ length: TOP_RATED_CONFIG.maxCandidatePages }, (_, index) =>
+          getMoviesByCategory("top-rated", index + 1)
+        )
+      ),
       getMoviesByCategory("upcoming", 1),
       getServerLanguage(),
     ]);
+
+  const topRatedCandidates = topRatedPages.flatMap((page) => page.results);
+  const topRatedMovies = rankTopRatedMovies(topRatedCandidates);
 
   const heroCandidates = selectHeroCandidates(popular.results, nowPlaying.results);
   const heroMovies = await Promise.all(
@@ -125,7 +137,8 @@ export default async function Home() {
         <MovieRail
           className="mt-14"
           title={t(language, "categories", "top-rated")}
-          movies={topRated.results}
+          description={t(language, "home", "topRatedDescription")}
+          movies={topRatedMovies}
           href="/search"
           actionLabel={exploreAllCta}
         />
